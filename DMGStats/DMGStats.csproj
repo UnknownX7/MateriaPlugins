@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Version>1.0.1</Version>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <LibPath>C:\dev\FFVIIEC\Materia\lib\</LibPath>
+    <OutputPath>$(LibPath)..\plugins</OutputPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Materia">
+      <HintPath>$(LibPath)..\Materia.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ImGui.NET">
+      <HintPath>$(LibPath)ImGui.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>$(LibPath)MessagePack.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(LibPath)protobuf-net.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(LibPath)Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ECGen.Generated">
+      <HintPath>$(LibPath)ECGen.Generated.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" BeforeTargets="PostBuildEvent">
+    <Exec Command="del $(TargetDir)$(TargetName).deps.json" />
+  </Target>
+</Project>
