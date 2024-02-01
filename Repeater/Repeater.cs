@@ -23,7 +23,7 @@ public unsafe class Repeater : IMateriaPlugin
 
     public void Update()
     {
-        if (repeatStopwatch is not { IsRunning: true, ElapsedMilliseconds: > 500 } || BattleSystem.Instance is not { } battleSystem) return;
+        if (repeatStopwatch is not { IsRunning: true, ElapsedMilliseconds: > 500 } || ModalManager.Instance?.ModalCount > 1 || BattleSystem.Instance is not { } battleSystem) return;
 
         if (battleSystem.IsDefeated)
         {
