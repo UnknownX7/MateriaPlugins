@@ -41,14 +41,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     public void Update()
     {
-        if (!Config.EnableSkipBattleCutscenes) return;
-
-        var battleSystem = GameInterop.BattleSystem;
-        var battleHUD = GameInterop.BattleHUD;
-        if (battleSystem == null || battleHUD == null) return;
-
-        var battleStatus = (int)battleHUD->battleStatus->currentKey->value;
-        if (battleStatus == 4 || (battleStatus == 9 && battleSystem->limitCombo->value))
+        if (!Config.EnableSkipBattleCutscenes || BattleSystem.Instance is not { } battleSystem || BattleHUD.Instance is not { } battleHUD) return;
+        if (battleHUD.CurrentStatus == 4 || (battleHUD.CurrentStatus == 9 && battleSystem.IsLimitBreak))
             GameInterop.SendKey(VirtualKey.VK_CONTROL);
     }
 

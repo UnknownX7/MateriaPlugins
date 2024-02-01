@@ -17,10 +17,9 @@ public unsafe class DMGStats : IMateriaPlugin
     // TODO: Use enums
     public void Draw()
     {
-        var screenManager = GameInterop.ScreenManager;
-        if (screenManager == null || screenManager->currentScreen == null || DebugUtil.GetTypeName(screenManager->currentScreen) is not ("Command.OutGame.Party.PartyEditTopScreenPresenter" or "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter")) return;
+        if (ScreenManager.Instance?.CurrentScreen is not { TypeName: "Command.OutGame.Party.PartyEditTopScreenPresenter" or "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" } currentScreen) return;
 
-        var partyEdit = (Command_OutGame_Party_PartyEditTopScreenPresenter*)screenManager->currentScreen;
+        var partyEdit = (Command_OutGame_Party_PartyEditTopScreenPresenter*)currentScreen.NativePtr;
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->Get(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 

@@ -23,15 +23,15 @@ public unsafe class Repeater : IMateriaPlugin
 
     public void Update()
     {
-        if (repeatStopwatch is not { IsRunning: true, ElapsedMilliseconds: > 500 }) return;
+        if (repeatStopwatch is not { IsRunning: true, ElapsedMilliseconds: > 500 } || BattleSystem.Instance is not { } battleSystem) return;
 
-        if (GameInterop.IsDefeated)
+        if (battleSystem.IsDefeated)
         {
             repeatStopwatch.Reset();
             return;
         }
 
-        if (GameInterop.IsBattleWon)
+        if (battleSystem.IsBattleWon)
             GameInterop.SendKey(VirtualKey.VK_RETURN);
 
         repeatStopwatch.Restart();
