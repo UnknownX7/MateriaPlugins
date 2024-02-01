@@ -1,32 +1,35 @@
-﻿using ECGen.Generated;
-using ImGuiNET;
-using Materia.Game;
-using Materia.Plugin;
-using Materia.Utilities;
+﻿using System;
 using System.Numerics;
+using ECGen.Generated;
+using ImGuiNET;
 
-namespace DMGStats;
+namespace Infomania;
 
-public unsafe class DMGStats : IMateriaPlugin
+public static unsafe class PartyInfo
 {
-    public string Name => "DMGStats";
-    public string Description => "Displays extra information when editing equipment";
+    private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
 
-    public DMGStats(PluginServiceManager pluginServiceManager) => pluginServiceManager.EventHandler.Draw += Draw;
+    private static int CalcOwnDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
 
-    // TODO: Use enums
-    public void Draw()
+    private static int CalcEnemyBaseDamage(int attack, int defense) => attack * 2000 / (defense * 100 + 10000);
+
+    private static int CalcDamage(int baseDamage, int skillCoefficient, int potencyAdd, int potencyCoefficient, int stanceBonusCoefficient)
     {
-        if (ScreenManager.Instance?.CurrentScreen is not { TypeName: "Command.OutGame.Party.PartyEditTopScreenPresenter" or "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" } currentScreen) return;
+        var skill = (skillCoefficient + potencyAdd) * (1000 + potencyCoefficient) / 1000;
+        return baseDamage * skill / 1000 * (1000 + stanceBonusCoefficient) / 1000;
+    }
 
-        var partyEdit = (Command_OutGame_Party_PartyEditTopScreenPresenter*)currentScreen.NativePtr;
+    private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
+
+    public static void DrawPartyEditInfo(Command_OutGame_Party_PartyEditTopScreenPresenter* partyEdit)
+    {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->Get(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
         if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is 2 or 4 or 6 or 7 or 8 or 9)
             characterInfo = (Command_Work_PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo;
 
-        ImGui.Begin("DMGStats", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
 
         var physAdd = 0;
         var physCoefficient = 0;
@@ -129,18 +132,4 @@ public unsafe class DMGStats : IMateriaPlugin
 
         ImGui.End();
     }
-
-    private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
-
-    private static int CalcOwnDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
-
-    private static int CalcEnemyBaseDamage(int attack, int defense) => attack * 2000 / (defense * 100 + 10000);
-
-    private static int CalcDamage(int baseDamage, int skillCoefficient, int potencyAdd, int potencyCoefficient, int stanceBonusCoefficient)
-    {
-        var skill = (skillCoefficient + potencyAdd) * (1000 + potencyCoefficient) / 1000;
-        return baseDamage * skill / 1000 * (1000 + stanceBonusCoefficient) / 1000;
-    }
-
-    private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
 }
