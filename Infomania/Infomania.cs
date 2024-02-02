@@ -32,8 +32,11 @@ public unsafe class Infomania : IMateriaPlugin
             case "Command.OutGame.Gift.GiftModalPresenter" when Config.EnableGiftInfo:
                 GiftInfo.Draw((Command_OutGame_Gift_GiftModalPresenter*)currentModal.NativePtr);
                 break;
+            case "Command.OutGame.BossDetailModalPresenter" when Config.EnableBossDetailInfo:
+                BossDetailInfo.DrawBossDetailInfo((Command_OutGame_BossDetailModalPresenter*)currentModal.NativePtr);
+                break;
             case "Command.OutGame.BossSelectDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.Draw((Command_OutGame_BossSelectDetailModalPresenter*)currentModal.NativePtr);
+                BossDetailInfo.DrawBossSelectDetailInfo((Command_OutGame_BossSelectDetailModalPresenter*)currentModal.NativePtr);
                 break;
             case null:
                 break;
@@ -53,7 +56,7 @@ public unsafe class Infomania : IMateriaPlugin
 
     private void DrawSettings()
     {
-        ImGui.SetNextWindowSizeConstraints(new Vector2(200, 100) * ImGuiEx.Scale, new Vector2(10000));
+        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 100) * ImGuiEx.Scale, new Vector2(10000));
         ImGui.Begin("Infomania", ref draw);
 
         var b = Config.EnablePartyEditInfo;
@@ -67,6 +70,13 @@ public unsafe class Infomania : IMateriaPlugin
         if (ImGui.Checkbox("Enable Gift Count", ref b))
         {
             Config.EnableGiftInfo = b;
+            Config.Save();
+        }
+
+        b = Config.EnableBossDetailInfo;
+        if (ImGui.Checkbox("Enable Enemy Detail Stats", ref b))
+        {
+            Config.EnableBossDetailInfo = b;
             Config.Save();
         }
 
