@@ -21,6 +21,72 @@ public static unsafe class PartyInfo
 
     private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
 
+    public static void DrawPartySelectInfo(Command_OutGame_Party_PartySelectScreenPresenter* partySelect)
+    {
+        var selectedParty = partySelect->partySelect->selectPartyInfo;
+        if (selectedParty == null) return;
+
+        switch (selectedParty->partyCharacterInfos->max_length)
+        {
+            case 1:
+            {
+                var character = selectedParty->partyCharacterInfos->Get(0);
+                if (character->characterId == 0) return;
+                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+                DrawStats(character, true);
+                ImGui.End();
+                break;
+            }
+            case 3:
+            {
+                var leftCharacter = selectedParty->partyCharacterInfos->Get(1);
+                var middleCharacter = selectedParty->partyCharacterInfos->Get(0);
+                var rightCharacter = selectedParty->partyCharacterInfos->Get(2);
+                if (leftCharacter->characterId == 0 && middleCharacter->characterId == 0 && rightCharacter->characterId == 0) return;
+
+                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+
+                if (leftCharacter->characterId != 0)
+                {
+                    ImGui.BeginGroup();
+                    DrawStats(leftCharacter, true);
+                    ImGui.EndGroup();
+                }
+
+                if (middleCharacter->characterId != 0)
+                {
+                    if (leftCharacter->characterId != 0)
+                    {
+                        ImGui.SameLine();
+                        ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                        ImGui.SameLine();
+                    }
+
+                    ImGui.BeginGroup();
+                    DrawStats(middleCharacter, true);
+                    ImGui.EndGroup();
+                }
+
+                if (rightCharacter->characterId != 0)
+                {
+                    if (leftCharacter->characterId != 0 || middleCharacter->characterId != 0)
+                    {
+                        ImGui.SameLine();
+                        ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                        ImGui.SameLine();
+                    }
+
+                    ImGui.BeginGroup();
+                    DrawStats(rightCharacter, true);
+                    ImGui.EndGroup();
+                }
+
+                ImGui.End();
+                break;
+            }
+        }
+    }
+
     public static void DrawPartyEditInfo(Command_OutGame_Party_PartyEditTopScreenPresenter* partyEdit)
     {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->Get(partyEdit->selectIndex);
@@ -30,7 +96,12 @@ public static unsafe class PartyInfo
             characterInfo = (Command_Work_PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo;
 
         ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        DrawStats(characterInfo, false);
+        ImGui.End();
+    }
 
+    private static void DrawStats(Command_Work_PartyCharacterInfo* characterInfo, bool displayHeal)
+    {
         var physAdd = 0;
         var physCoefficient = 0;
         var magAdd = 0;
@@ -127,9 +198,9 @@ public static unsafe class PartyInfo
         }
 
         ImGui.Spacing();
+        if (displayHeal)
+            ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower}");
         ImGui.TextUnformatted($"Phys. Res.: {CalcOwnDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
         ImGui.TextUnformatted($"Mag. Res.: {CalcOwnDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
-
-        ImGui.End();
     }
 }

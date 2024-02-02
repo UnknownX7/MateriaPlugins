@@ -47,6 +47,12 @@ public unsafe class Infomania : IMateriaPlugin
         var currentScreen = ScreenManager.Instance?.CurrentScreen;
         switch (currentScreen?.TypeName)
         {
+            case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.EnablePartySelectInfo:
+            case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
+            case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
+            case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.EnablePartySelectInfo:
+                PartyInfo.DrawPartySelectInfo((Command_OutGame_Party_PartySelectScreenPresenter*)currentScreen.NativePtr);
+                break;
             case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.EnablePartyEditInfo:
             case "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" when Config.EnablePartyEditInfo:
                 PartyInfo.DrawPartyEditInfo((Command_OutGame_Party_PartyEditTopScreenPresenter*)currentScreen.NativePtr);
@@ -56,10 +62,17 @@ public unsafe class Infomania : IMateriaPlugin
 
     private void DrawSettings()
     {
-        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 100) * ImGuiEx.Scale, new Vector2(10000));
+        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 200) * ImGuiEx.Scale, new Vector2(10000));
         ImGui.Begin("Infomania", ref draw);
 
-        var b = Config.EnablePartyEditInfo;
+        var b = Config.EnablePartySelectInfo;
+        if (ImGui.Checkbox("Enable Party Select Stats", ref b))
+        {
+            Config.EnablePartySelectInfo = b;
+            Config.Save();
+        }
+
+        b = Config.EnablePartyEditInfo;
         if (ImGui.Checkbox("Enable Party Edit Stats", ref b))
         {
             Config.EnablePartyEditInfo = b;
