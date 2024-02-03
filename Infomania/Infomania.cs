@@ -31,13 +31,13 @@ public unsafe class Infomania : IMateriaPlugin
         {
             case "Command.OutGame.Gift.GiftModalPresenter" when Config.EnableGiftInfo:
                 GiftInfo.Draw((Command_OutGame_Gift_GiftModalPresenter*)currentModal.NativePtr);
-                break;
+                return;
             case "Command.OutGame.BossDetailModalPresenter" when Config.EnableBossDetailInfo:
                 BossDetailInfo.DrawBossDetailInfo((Command_OutGame_BossDetailModalPresenter*)currentModal.NativePtr);
-                break;
+                return;
             case "Command.OutGame.BossSelectDetailModalPresenter" when Config.EnableBossDetailInfo:
                 BossDetailInfo.DrawBossSelectDetailInfo((Command_OutGame_BossSelectDetailModalPresenter*)currentModal.NativePtr);
-                break;
+                return;
             case null:
                 break;
             default:
