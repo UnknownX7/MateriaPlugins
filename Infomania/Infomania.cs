@@ -50,10 +50,12 @@ public unsafe class Infomania : IMateriaPlugin
             case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
+            case "Command.OutGame.Party.MultiPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.EnablePartySelectInfo:
                 PartyInfo.DrawPartySelectInfo((Command_OutGame_Party_PartySelectScreenPresenter*)currentScreen.NativePtr);
                 break;
             case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.EnablePartyEditInfo:
+            case "Command.OutGame.Party.PartyEditTopScreenMultiPresenter" when Config.EnablePartyEditInfo:
             case "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" when Config.EnablePartyEditInfo:
                 PartyInfo.DrawPartyEditInfo((Command_OutGame_Party_PartyEditTopScreenPresenter*)currentScreen.NativePtr);
                 break;
