@@ -11,4 +11,5 @@ public class Configuration : PluginConfiguration
     public bool EnableSkipBattleCutscenes { get; set; }
     public bool EnableSkipGilShopConfirmation { get; set; }
     public bool EnableSkipGilResetShopConfirmation { get; set; }
+    public bool EnableRememberLastSelectedMateriaRecipe { get; set; }
 }

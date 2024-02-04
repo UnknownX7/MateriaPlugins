@@ -37,6 +37,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
             AdequatelyWeaponMedalItemHook?.Enable();
         if (Config.DisableHiddenData)
             AnotherDungeonBossCellModelCtorHook?.Enable();
+        if (Config.EnableRememberLastSelectedMateriaRecipe)
+            SynthesisSelectScreenSetupParameterCtorHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -74,6 +76,16 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 break;
             default:
                 return;
+        }
+
+        var currentScreen = ScreenManager.Instance?.CurrentScreen;
+        switch (currentScreen?.TypeName)
+        {
+            case "Command.OutGame.Synthesis.SynthesisSelectScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe:
+                var synthesisSelect = (Command_OutGame_Synthesis_SynthesisSelectScreenPresenter*)currentScreen.NativePtr;
+                var materiaRecipeStore = (Command_Work_MateriaWork_MateriaRecipeStore*)synthesisSelect->selectRecipe;
+                lastMateriaRecipeId = materiaRecipeStore->masterMateriaRecipe->id;
+                break;
         }
     }
 
@@ -148,6 +160,16 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.EnableSkipGilResetShopConfirmation = b;
             Config.Save();
         }
+        ImGuiEx.SetItemTooltip("Works on the Gil and Chocobo Medals shops");
+
+        b = Config.EnableRememberLastSelectedMateriaRecipe;
+        if (ImGui.Checkbox("Auto Select Last Materia Recipe", ref b))
+        {
+            SynthesisSelectScreenSetupParameterCtorHook?.Toggle();
+            Config.EnableRememberLastSelectedMateriaRecipe = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Does not currently work with certain recipes!");
 
         ImGui.End();
     }
@@ -203,4 +225,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
     }
 
     public static void PressButton(Command_UI_TintButton* button) => PressButton((Command_UI_SingleTapButton*)button);
+
+    private static long lastMateriaRecipeId;
+    private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(Command_OutGame_Synthesis_SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
+    [GameSymbol("Command.OutGame.Synthesis.SynthesisSelectScreenSetupParameter$$.ctor", EnableHook = false)]
+    private static IMateriaHook<SynthesisSelectScreenSetupParameterCtorDelegate>? SynthesisSelectScreenSetupParameterCtorHook;
+    private static void SynthesisSelectScreenSetupParameterCtorDetour(Command_OutGame_Synthesis_SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method)
+    {
+        SynthesisSelectScreenSetupParameterCtorHook!.Original(param, selectDataIndex, synthesisRecipeViewType, method);
+        if (synthesisRecipeViewType == 1)
+            param->materiaRecipeId = lastMateriaRecipeId;
+    }
 }
