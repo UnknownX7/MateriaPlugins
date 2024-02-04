@@ -9,4 +9,6 @@ public class Configuration : PluginConfiguration
     public bool DisableCharacterParts { get; set; }
     public bool DisableHiddenData { get; set; }
     public bool EnableSkipBattleCutscenes { get; set; }
+    public bool EnableSkipGilShopConfirmation { get; set; }
+    public bool EnableSkipGilResetShopConfirmation { get; set; }
 }

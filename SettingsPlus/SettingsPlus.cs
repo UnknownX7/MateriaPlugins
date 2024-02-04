@@ -5,6 +5,7 @@ using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace SettingsPlus;
@@ -17,6 +18,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     public static PluginServiceManager PluginServiceManager { get; private set; } = null!;
     public static Configuration Config { get; } = PluginConfiguration.Load<Configuration>();
 
+    private static readonly List<Action> onUpdate = new();
     private bool draw = false;
     private readonly int[] res = { 960, 540 };
 
@@ -41,16 +43,45 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     public void Update()
     {
+        UpdateUISettings();
+
+        foreach (var action in onUpdate)
+            action.Invoke();
+        onUpdate.Clear();
+
         if (!Config.EnableSkipBattleCutscenes || BattleSystem.Instance is not { } battleSystem || BattleHUD.Instance is not { } battleHUD) return;
         if (battleHUD.CurrentStatus == 4 || (battleHUD.CurrentStatus == 9 && battleSystem.IsLimitBreak))
             GameInterop.SendKey(VirtualKey.VK_CONTROL);
+    }
+
+    public void UpdateUISettings()
+    {
+        var currentModal = ModalManager.Instance?.CurrentModal;
+        switch (currentModal?.TypeName)
+        {
+            case "Command.OutGame.Shop.ShopCheckPurchaseItemsModal" when Config.EnableSkipGilShopConfirmation:
+                var purchaseItemsModal = (Command_OutGame_Shop_ShopCheckPurchaseItemsModal*)currentModal.NativePtr;
+                if (purchaseItemsModal->consumptionType == 2 && purchaseItemsModal->consumptionItemField->consumptionItemId == 1 && purchaseItemsModal->currentShopProductParameter->ShopId == 101002)
+                    PressButton(purchaseItemsModal->consumptionItemField->okButton);
+                return;
+            case "Command.OutGame.Shop.ShopResetLineupModal" when Config.EnableSkipGilResetShopConfirmation:
+                var shopResetLineupModal = (Command_OutGame_Shop_ShopResetLineupModal*)currentModal.NativePtr;
+                var shopStore = (Command_Work_ShopWork_ShopStore*)shopResetLineupModal->currentShopInfo;
+                if (shopResetLineupModal->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id is 101002 or 207001)
+                    PressButton(shopResetLineupModal->consumptionItemField->okButton);
+                return;
+            case null:
+                break;
+            default:
+                return;
+        }
     }
 
     public void Draw()
     {
         if (!draw) return;
 
-        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 100) * ImGuiEx.Scale, new Vector2(10000));
+        ImGui.SetNextWindowSizeConstraints(new Vector2(300, 200) * ImGuiEx.Scale, new Vector2(10000));
         ImGui.Begin("Settings+", ref draw);
 
         if (ImGui.Button("Set") && setResolution != null)
@@ -104,6 +135,20 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
 
+        b = Config.EnableSkipGilShopConfirmation;
+        if (ImGui.Checkbox("Auto Skip Gil Shop Confirmation", ref b))
+        {
+            Config.EnableSkipGilShopConfirmation = b;
+            Config.Save();
+        }
+
+        b = Config.EnableSkipGilResetShopConfirmation;
+        if (ImGui.Checkbox("Auto Skip Shop Reset Confirmation", ref b))
+        {
+            Config.EnableSkipGilResetShopConfirmation = b;
+            Config.Save();
+        }
+
         ImGui.End();
     }
 
@@ -139,4 +184,23 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static IMateriaHook<AnotherDungeonBossCellModelCtorDelegate>? AnotherDungeonBossCellModelCtorHook;
     private static void AnotherDungeonBossCellModelCtorDetour(nint anotherDungeonBossCellModel, nint anotherBattleInfo, nint anotherBossInfos, CBool isWin, CBool showBossLabel, CBool isDisplayInfo, nint method) =>
         AnotherDungeonBossCellModelCtorHook!.Original(anotherDungeonBossCellModel, anotherBattleInfo, anotherBossInfos, isWin, showBossLabel, true, method);
+
+    [GameSymbol("Command.UI.SingleTapButton$$ForceTapSteamUICursor")]
+    private static delegate* unmanaged<void*, nint, void> forceTapSteamUICursor;
+
+    private static readonly Queue<(nint, nint)> lastPressedButtons = new(11);
+    public static void PressButton(Command_UI_SingleTapButton* singleTapButton)
+    {
+        if (lastPressedButtons.Contains(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject))) return;
+
+        var isSteamKeyAvailable = (delegate* unmanaged<Command_UI_SingleTapButton*, nint, CBool>)singleTapButton->klass->vtable.IsSteamKeyAvailable.methodPtr;
+        if (!isSteamKeyAvailable(singleTapButton, 0)) return;
+
+        lastPressedButtons.Enqueue(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject));
+        if (lastPressedButtons.Count > 10)
+            lastPressedButtons.Dequeue();
+        onUpdate.Add(() => forceTapSteamUICursor(singleTapButton, 0));
+    }
+
+    public static void PressButton(Command_UI_TintButton* button) => PressButton((Command_UI_SingleTapButton*)button);
 }
