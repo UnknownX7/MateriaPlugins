@@ -16,6 +16,7 @@ public static unsafe class BossDetailInfo
         var elementResistanceInfo = (Command_Work_ElementResistanceInfo*)enemyStore->elementResistanceInfo;
         var vf = (delegate* unmanaged<Command_Work_BattleWork_BattleEnemyStore*, nint, Command_Work_StatusParamInfo*>)battleEnemyStore->klass->vtable.get_TotalStatusParamInfo.methodPtr;
         var statusParamInfo = vf(battleEnemyStore, 0);
+        if (statusParamInfo == null) return;
 
         ImGui.Begin("BossDetailInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
 
