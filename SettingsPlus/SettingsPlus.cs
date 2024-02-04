@@ -50,10 +50,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
         foreach (var action in onUpdate)
             action.Invoke();
         onUpdate.Clear();
-
-        if (!Config.EnableSkipBattleCutscenes || BattleSystem.Instance is not { } battleSystem || BattleHUD.Instance is not { } battleHUD) return;
-        if (battleHUD.CurrentStatus == 4 || (battleHUD.CurrentStatus == 9 && battleSystem.IsLimitBreak))
-            GameInterop.SendKey(VirtualKey.VK_CONTROL);
     }
 
     public void UpdateUISettings()
@@ -86,6 +82,16 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 var materiaRecipeStore = (Command_Work_MateriaWork_MateriaRecipeStore*)synthesisSelect->selectRecipe;
                 lastMateriaRecipeId = materiaRecipeStore->masterMateriaRecipe->id;
                 break;
+        }
+
+        if (BattleSystem.Instance is { } battleSystem && BattleHUD.Instance is { } battleHUD)
+        {
+            if (Config.EnableSkipBattleCutscenes && (battleHUD.CurrentStatus == 4 || (battleHUD.CurrentStatus == 9 && battleSystem.IsLimitBreak)))
+            {
+                GameInterop.SendKey(VirtualKey.VK_CONTROL);
+                //PressButton(battleHUD.NativePtr->cutsceneSkipper->tapArea);
+                //PressButton(battleHUD.NativePtr->cutsceneSkipper->skipButton); // TODO: Does not work for summon cutscene
+            }
         }
     }
 
@@ -210,21 +216,22 @@ public unsafe class SettingsPlus : IMateriaPlugin
     [GameSymbol("Command.UI.SingleTapButton$$ForceTapSteamUICursor")]
     private static delegate* unmanaged<void*, nint, void> forceTapSteamUICursor;
 
-    private static readonly Queue<(nint, nint)> lastPressedButtons = new(11);
-    public static void PressButton(Command_UI_SingleTapButton* singleTapButton)
+    private static readonly Dictionary<(nint, nint), long> lastPressedButtons = new();
+    public static bool PressButton(Command_UI_SingleTapButton* singleTapButton, uint lockoutMs = 2000)
     {
-        if (lastPressedButtons.Contains(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject))) return;
+        if (lastPressedButtons.TryGetValue(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject), out var timestampMs) && timestampMs > DateTimeOffset.Now.ToUnixTimeMilliseconds()) return false;
 
         var isSteamKeyAvailable = (delegate* unmanaged<Command_UI_SingleTapButton*, nint, CBool>)singleTapButton->klass->vtable.IsSteamKeyAvailable.methodPtr;
-        if (!isSteamKeyAvailable(singleTapButton, 0)) return;
+        if (!isSteamKeyAvailable(singleTapButton, 0)) return false;
 
-        lastPressedButtons.Enqueue(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject));
-        if (lastPressedButtons.Count > 10)
-            lastPressedButtons.Dequeue();
+        if (lockoutMs > 0)
+            lastPressedButtons[((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject)] = DateTimeOffset.Now.ToUnixTimeMilliseconds() + lockoutMs;
+
         onUpdate.Add(() => forceTapSteamUICursor(singleTapButton, 0));
+        return true;
     }
 
-    public static void PressButton(Command_UI_TintButton* button) => PressButton((Command_UI_SingleTapButton*)button);
+    public static bool PressButton(Command_UI_TintButton* button) => PressButton((Command_UI_SingleTapButton*)button);
 
     private static long lastMateriaRecipeId;
     private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(Command_OutGame_Synthesis_SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
