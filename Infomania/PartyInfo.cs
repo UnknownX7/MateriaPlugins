@@ -1,6 +1,8 @@
-﻿using System;
-using System.Numerics;
-using ECGen.Generated;
+﻿using System.Numerics;
+using ECGen.Generated.Command.Enums;
+using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Party;
+using ECGen.Generated.Command.Work;
 using ImGuiNET;
 
 namespace Infomania;
@@ -21,7 +23,7 @@ public static unsafe class PartyInfo
 
     private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
 
-    public static void DrawPartySelectInfo(Command_OutGame_Party_PartySelectScreenPresenter* partySelect)
+    public static void DrawPartySelectInfo(PartySelectScreenPresenter* partySelect)
     {
         var selectedParty = partySelect->partySelect->selectPartyInfo;
         if (selectedParty == null) return;
@@ -30,7 +32,7 @@ public static unsafe class PartyInfo
         {
             case 1:
             {
-                var character = selectedParty->partyCharacterInfos->Get(0);
+                var character = selectedParty->partyCharacterInfos->GetPointer(0);
                 if (character->characterId == 0) return;
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
                 DrawStats(character, true);
@@ -39,9 +41,9 @@ public static unsafe class PartyInfo
             }
             case 3:
             {
-                var leftCharacter = selectedParty->partyCharacterInfos->Get(1);
-                var middleCharacter = selectedParty->partyCharacterInfos->Get(0);
-                var rightCharacter = selectedParty->partyCharacterInfos->Get(2);
+                var leftCharacter = selectedParty->partyCharacterInfos->GetPointer(1);
+                var middleCharacter = selectedParty->partyCharacterInfos->GetPointer(0);
+                var rightCharacter = selectedParty->partyCharacterInfos->GetPointer(2);
                 if (leftCharacter->characterId == 0 && middleCharacter->characterId == 0 && rightCharacter->characterId == 0) return;
 
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
@@ -87,20 +89,20 @@ public static unsafe class PartyInfo
         }
     }
 
-    public static void DrawPartyEditInfo(Command_OutGame_Party_PartyEditTopScreenPresenter* partyEdit)
+    public static void DrawPartyEditInfo(PartyEditTopScreenPresenter* partyEdit)
     {
-        var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->Get(partyEdit->selectIndex);
+        var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPointer(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
-        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is 2 or 4 or 6 or 7 or 8 or 9)
-            characterInfo = (Command_Work_PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo;
+        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is PartyEditSelectType.BattleWear or PartyEditSelectType.MainWeapon or PartyEditSelectType.AbilityWeapon or PartyEditSelectType.SubWeapon0 or PartyEditSelectType.SubWeapon1 or PartyEditSelectType.SubWeapon2)
+            characterInfo = (PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo;
 
         ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
         DrawStats(characterInfo, false);
         ImGui.End();
     }
 
-    private static void DrawStats(Command_Work_PartyCharacterInfo* characterInfo, bool displayHeal)
+    private static void DrawStats(PartyCharacterInfo* characterInfo, bool displayHeal)
     {
         var physAdd = 0;
         var physCoefficient = 0;
@@ -110,25 +112,25 @@ public static unsafe class PartyInfo
 
         for (int i = 0; i < characterInfo->passiveSkillEffectInfos->max_length; i++)
         {
-            var skillEffectInfo = characterInfo->passiveSkillEffectInfos->Get(i);
+            var skillEffectInfo = characterInfo->passiveSkillEffectInfos->GetPointer(i);
             switch (skillEffectInfo->passiveSkillType)
             {
-                case 2: // Element
+                case PassiveSkillType.ElementDamage:
                     var element = skillEffectInfo->passiveDetailType - 2;
                     elementalPotencies[element].Item1 += skillEffectInfo->effectValue;
                     elementalPotencies[element].Item2 += skillEffectInfo->effectCoefficient;
                     break;
-                case 22: // Phys damage
+                case PassiveSkillType.PhysicalDamage:
                     physAdd += skillEffectInfo->effectValue;
                     physCoefficient += skillEffectInfo->effectCoefficient;
                     break;
-                case 23: // Mag damage
+                case PassiveSkillType.MagicalDamage:
                     magAdd += skillEffectInfo->effectValue;
                     magCoefficient += skillEffectInfo->effectCoefficient;
                     break;
-                case 1: // Parameter
-                case 10: // LB Damage
-                case 11: // Summon Damage
+                case PassiveSkillType.Parameter:
+                case PassiveSkillType.LimitBreakDamage:
+                case PassiveSkillType.SummonDamage:
                     break;
                 default:
                     //ImGui.TextUnformatted($"??? {skillEffectInfo->passiveDetailType} +{skillEffectInfo->effectValue}/{skillEffectInfo->effectCoefficient / 10f}%");

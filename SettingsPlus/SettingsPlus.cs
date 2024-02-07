@@ -7,6 +7,16 @@ using Materia.Plugin;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Shop;
+using ECGen.Generated.Command.UI;
+using ECGen.Generated.Command.OutGame.Synthesis;
+using ECGen.Generated.Command.Work;
+using ECGen.Generated.Custom;
+using ModalManager = Materia.Game.ModalManager;
+using ScreenManager = Materia.Game.ScreenManager;
+using BattleSystem = Materia.Game.BattleSystem;
 
 namespace SettingsPlus;
 
@@ -58,13 +68,13 @@ public unsafe class SettingsPlus : IMateriaPlugin
         switch (currentModal?.TypeName)
         {
             case "Command.OutGame.Shop.ShopCheckPurchaseItemsModal" when Config.EnableSkipGilShopConfirmation:
-                var purchaseItemsModal = (Command_OutGame_Shop_ShopCheckPurchaseItemsModal*)currentModal.NativePtr;
-                if (purchaseItemsModal->consumptionType == 2 && purchaseItemsModal->consumptionItemField->consumptionItemId == 1 && purchaseItemsModal->currentShopProductParameter->ShopId == 101002)
+                var purchaseItemsModal = (ShopCheckPurchaseItemsModal*)currentModal.NativePtr;
+                if (purchaseItemsModal->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && purchaseItemsModal->consumptionItemField->consumptionItemId == 1 && purchaseItemsModal->currentShopProductParameter->ShopId == 101002)
                     PressButton(purchaseItemsModal->consumptionItemField->okButton);
                 return;
             case "Command.OutGame.Shop.ShopResetLineupModal" when Config.EnableSkipGilResetShopConfirmation:
-                var shopResetLineupModal = (Command_OutGame_Shop_ShopResetLineupModal*)currentModal.NativePtr;
-                var shopStore = (Command_Work_ShopWork_ShopStore*)shopResetLineupModal->currentShopInfo;
+                var shopResetLineupModal = (ShopResetLineupModal*)currentModal.NativePtr;
+                var shopStore = (ShopWork.ShopStore*)shopResetLineupModal->currentShopInfo;
                 if (shopResetLineupModal->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id is 101002 or 207001)
                     PressButton(shopResetLineupModal->consumptionItemField->okButton);
                 return;
@@ -78,15 +88,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         switch (currentScreen?.TypeName)
         {
             case "Command.OutGame.Synthesis.SynthesisSelectScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe:
-                var synthesisSelect = (Command_OutGame_Synthesis_SynthesisSelectScreenPresenter*)currentScreen.NativePtr;
-                var materiaRecipeStore = (Command_Work_MateriaWork_MateriaRecipeStore*)synthesisSelect->selectRecipe;
+                var synthesisSelect = (SynthesisSelectScreenPresenter*)currentScreen.NativePtr;
+                var materiaRecipeStore = (MateriaWork.MateriaRecipeStore*)synthesisSelect->selectRecipe;
                 lastMateriaRecipeId = materiaRecipeStore->masterMateriaRecipe->id;
                 break;
         }
 
         if (BattleSystem.Instance is { } battleSystem && BattleHUD.Instance is { } battleHUD)
         {
-            if (Config.EnableSkipBattleCutscenes && (battleHUD.CurrentStatus == 4 || (battleHUD.CurrentStatus == 9 && battleSystem.IsLimitBreak)))
+            if (Config.EnableSkipBattleCutscenes && (battleHUD.CurrentStatus == HUD.Status.BossEncounterCutScene || (battleHUD.CurrentStatus == HUD.Status.SpecialSkill && battleSystem.IsLimitBreak)))
             {
                 GameInterop.SendKey(VirtualKey.VK_CONTROL);
                 //PressButton(battleHUD.NativePtr->cutsceneSkipper->tapArea);
@@ -194,10 +204,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static IMateriaHook<IsValidActionCameraWaitingTimeDelegate>? IsValidActionCameraWaitingTimeHook;
     private static CBool IsValidActionCameraWaitingTimeDetour(nint cameraManager, nint method) => true;
 
-    private delegate void AdequatelyWeaponMedalItemDelegate(nint weaponEnhancePanel, System_Collections_Generic_List<Command_OutGame_ItemCountSelectModel>* weaponMedalModels, long gil, nint method);
+    private delegate void AdequatelyWeaponMedalItemDelegate(nint weaponEnhancePanel, Unmanaged_List<ItemCountSelectModel>* weaponMedalModels, long gil, nint method);
     [GameSymbol("Command.OutGame.Weapon.WeaponEnhancePanel$$AdequatelyWeaponMedalItem", EnableHook = false)]
     private static IMateriaHook<AdequatelyWeaponMedalItemDelegate>? AdequatelyWeaponMedalItemHook;
-    private static void AdequatelyWeaponMedalItemDetour(nint weaponEnhancePanel, System_Collections_Generic_List<Command_OutGame_ItemCountSelectModel>* weaponMedalModels, long gil, nint method)
+    private static void AdequatelyWeaponMedalItemDetour(nint weaponEnhancePanel, Unmanaged_List<ItemCountSelectModel>* weaponMedalModels, long gil, nint method)
     {
         // TODO: Extremely hacky but it works
         var prevSize = weaponMedalModels->size;
@@ -217,11 +227,11 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static delegate* unmanaged<void*, nint, void> forceTapSteamUICursor;
 
     private static readonly Dictionary<(nint, nint), long> lastPressedButtons = new();
-    public static bool PressButton(Command_UI_SingleTapButton* singleTapButton, uint lockoutMs = 2000)
+    public static bool PressButton(SingleTapButton* singleTapButton, uint lockoutMs = 2000)
     {
         if (lastPressedButtons.TryGetValue(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject), out var timestampMs) && timestampMs > DateTimeOffset.Now.ToUnixTimeMilliseconds()) return false;
 
-        var isSteamKeyAvailable = (delegate* unmanaged<Command_UI_SingleTapButton*, nint, CBool>)singleTapButton->klass->vtable.IsSteamKeyAvailable.methodPtr;
+        var isSteamKeyAvailable = (delegate* unmanaged<SingleTapButton*, nint, CBool>)singleTapButton->klass->vtable.IsSteamKeyAvailable.methodPtr;
         if (!isSteamKeyAvailable(singleTapButton, 0)) return false;
 
         if (lockoutMs > 0)
@@ -231,13 +241,13 @@ public unsafe class SettingsPlus : IMateriaPlugin
         return true;
     }
 
-    public static bool PressButton(Command_UI_TintButton* button) => PressButton((Command_UI_SingleTapButton*)button);
+    public static bool PressButton(TintButton* button) => PressButton((SingleTapButton*)button);
 
     private static long lastMateriaRecipeId;
-    private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(Command_OutGame_Synthesis_SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
+    private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
     [GameSymbol("Command.OutGame.Synthesis.SynthesisSelectScreenSetupParameter$$.ctor", EnableHook = false)]
     private static IMateriaHook<SynthesisSelectScreenSetupParameterCtorDelegate>? SynthesisSelectScreenSetupParameterCtorHook;
-    private static void SynthesisSelectScreenSetupParameterCtorDetour(Command_OutGame_Synthesis_SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method)
+    private static void SynthesisSelectScreenSetupParameterCtorDetour(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method)
     {
         SynthesisSelectScreenSetupParameterCtorHook!.Original(param, selectDataIndex, synthesisRecipeViewType, method);
         if (synthesisRecipeViewType == 1)

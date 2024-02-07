@@ -1,20 +1,21 @@
-﻿using ECGen.Generated;
-using ImGuiNET;
+﻿using ImGuiNET;
 using System.Numerics;
+using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.Work;
 
 namespace Infomania;
 
 public static unsafe class BossDetailInfo
 {
-    public static void DrawBossDetailInfo(Command_OutGame_BossDetailModalPresenter* bossModal)
+    public static void DrawBossDetailInfo(BossDetailModalPresenter* bossModal)
     {
-        var bossModel = bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->Get(0)->bossDataSelectModel : null;
+        var bossModel = bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPointer(0)->bossDataSelectModel : null;
         if (bossModel == null) return;
 
-        var battleEnemyStore = (Command_Work_BattleWork_BattleEnemyStore*)bossModel->battleEnemyInfo;
-        var enemyStore = (Command_Work_EnemyWork_EnemyStore*)bossModel->enemyInfo;
-        var elementResistanceInfo = (Command_Work_ElementResistanceInfo*)enemyStore->elementResistanceInfo;
-        var vf = (delegate* unmanaged<Command_Work_BattleWork_BattleEnemyStore*, nint, Command_Work_StatusParamInfo*>)battleEnemyStore->klass->vtable.get_TotalStatusParamInfo.methodPtr;
+        var battleEnemyStore = (BattleWork.BattleEnemyStore*)bossModel->battleEnemyInfo;
+        var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
+        var elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
+        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->klass->vtable.get_TotalStatusParamInfo.methodPtr;
         var statusParamInfo = vf(battleEnemyStore, 0);
         if (statusParamInfo == null) return;
 
@@ -48,7 +49,7 @@ public static unsafe class BossDetailInfo
         ImGui.End();
     }
 
-    public static void DrawBossSelectDetailInfo(Command_OutGame_BossSelectDetailModalPresenter* bossModal)
+    public static void DrawBossSelectDetailInfo(BossSelectDetailModalPresenter* bossModal)
     {
         // Info is unavailable from here
     }

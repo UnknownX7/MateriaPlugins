@@ -1,14 +1,15 @@
 ﻿using System;
-using ECGen.Generated;
+using ECGen.Generated.Command.Enums;
+using ECGen.Generated.Command.OutGame.Gift;
 using ImGuiNET;
 
 namespace Infomania;
 
 public static unsafe class GiftInfo
 {
-    public static void Draw(Command_OutGame_Gift_GiftModalPresenter* giftModal)
+    public static void Draw(GiftModalPresenter* giftModal)
     {
-        var dictionary = (System_Collections_Generic_Dictionary<int, System_Collections_Generic_List<Command_Api_GiftRewardInfo>>*)giftModal->itemModel->giftListCache;
+        var dictionary = giftModal->itemModel->giftListCache;
         var staminaTonicCount = 0L;
         var firstExpiry = 7258118400000;
         for (int i = 0; i < dictionary->count; i++)
@@ -18,8 +19,8 @@ public static unsafe class GiftInfo
 
             for (int j = 0; j < entry->value->size; j++)
             {
-                var giftRewardInfo = entry->value->Get(j);
-                if (giftRewardInfo->rewardType != 1 || giftRewardInfo->targetId != 17002) continue;
+                var giftRewardInfo = entry->value->GetPointer(j);
+                if (giftRewardInfo->rewardType != RewardType.Item || giftRewardInfo->targetId != 17002) continue;
                 staminaTonicCount += giftRewardInfo->count;
                 firstExpiry = Math.Min(giftRewardInfo->giftInfo->expireDatetime, firstExpiry);
             }

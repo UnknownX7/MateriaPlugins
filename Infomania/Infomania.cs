@@ -1,12 +1,13 @@
-﻿using ECGen.Generated;
-using ImGuiNET;
+﻿using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
 using System.Numerics;
+using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Gift;
+using ECGen.Generated.Command.OutGame.Party;
 
 namespace Infomania;
 
-// TODO: Use enums
 public unsafe class Infomania : IMateriaPlugin
 {
     public string Name => "Infomania";
@@ -30,13 +31,13 @@ public unsafe class Infomania : IMateriaPlugin
         switch (currentModal?.TypeName)
         {
             case "Command.OutGame.Gift.GiftModalPresenter" when Config.EnableGiftInfo:
-                GiftInfo.Draw((Command_OutGame_Gift_GiftModalPresenter*)currentModal.NativePtr);
+                GiftInfo.Draw((GiftModalPresenter*)currentModal.NativePtr);
                 return;
             case "Command.OutGame.BossDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.DrawBossDetailInfo((Command_OutGame_BossDetailModalPresenter*)currentModal.NativePtr);
+                BossDetailInfo.DrawBossDetailInfo((BossDetailModalPresenter*)currentModal.NativePtr);
                 return;
             case "Command.OutGame.BossSelectDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.DrawBossSelectDetailInfo((Command_OutGame_BossSelectDetailModalPresenter*)currentModal.NativePtr);
+                BossDetailInfo.DrawBossSelectDetailInfo((BossSelectDetailModalPresenter*)currentModal.NativePtr);
                 return;
             case null:
                 break;
@@ -52,12 +53,12 @@ public unsafe class Infomania : IMateriaPlugin
             case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.MultiPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.EnablePartySelectInfo:
-                PartyInfo.DrawPartySelectInfo((Command_OutGame_Party_PartySelectScreenPresenter*)currentScreen.NativePtr);
+                PartyInfo.DrawPartySelectInfo((PartySelectScreenPresenter*)currentScreen.NativePtr);
                 break;
             case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.EnablePartyEditInfo:
             case "Command.OutGame.Party.PartyEditTopScreenMultiPresenter" when Config.EnablePartyEditInfo:
             case "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" when Config.EnablePartyEditInfo:
-                PartyInfo.DrawPartyEditInfo((Command_OutGame_Party_PartyEditTopScreenPresenter*)currentScreen.NativePtr);
+                PartyInfo.DrawPartyEditInfo((PartyEditTopScreenPresenter*)currentScreen.NativePtr);
                 break;
         }
     }
