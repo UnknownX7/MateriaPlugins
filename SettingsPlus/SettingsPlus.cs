@@ -28,7 +28,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
     public static PluginServiceManager PluginServiceManager { get; private set; } = null!;
     public static Configuration Config { get; } = PluginConfiguration.Load<Configuration>();
 
-    private static readonly List<Action> onUpdate = new();
     private bool draw = false;
     private readonly int[] res = { 960, 540 };
 
@@ -56,27 +55,23 @@ public unsafe class SettingsPlus : IMateriaPlugin
     public void Update()
     {
         UpdateUISettings();
-
-        foreach (var action in onUpdate)
-            action.Invoke();
-        onUpdate.Clear();
     }
 
     public void UpdateUISettings()
     {
         var currentModal = ModalManager.Instance?.CurrentModal;
-        switch (currentModal?.TypeName)
+        switch (currentModal?.Type.FullName)
         {
             case "Command.OutGame.Shop.ShopCheckPurchaseItemsModal" when Config.EnableSkipGilShopConfirmation:
                 var purchaseItemsModal = (ShopCheckPurchaseItemsModal*)currentModal.NativePtr;
                 if (purchaseItemsModal->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && purchaseItemsModal->consumptionItemField->consumptionItemId == 1 && purchaseItemsModal->currentShopProductParameter->ShopId == 101002)
-                    PressButton(purchaseItemsModal->consumptionItemField->okButton);
+                    GameInterop.TapButton(purchaseItemsModal->consumptionItemField->okButton);
                 return;
             case "Command.OutGame.Shop.ShopResetLineupModal" when Config.EnableSkipGilResetShopConfirmation:
                 var shopResetLineupModal = (ShopResetLineupModal*)currentModal.NativePtr;
                 var shopStore = (ShopWork.ShopStore*)shopResetLineupModal->currentShopInfo;
                 if (shopResetLineupModal->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id is 101002 or 207001)
-                    PressButton(shopResetLineupModal->consumptionItemField->okButton);
+                    GameInterop.TapButton(shopResetLineupModal->consumptionItemField->okButton);
                 return;
             case null:
                 break;
@@ -85,7 +80,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
 
         var currentScreen = ScreenManager.Instance?.CurrentScreen;
-        switch (currentScreen?.TypeName)
+        switch (currentScreen?.Type.FullName)
         {
             case "Command.OutGame.Synthesis.SynthesisSelectScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe:
                 var synthesisSelect = (SynthesisSelectScreenPresenter*)currentScreen.NativePtr;
@@ -222,26 +217,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static IMateriaHook<AnotherDungeonBossCellModelCtorDelegate>? AnotherDungeonBossCellModelCtorHook;
     private static void AnotherDungeonBossCellModelCtorDetour(nint anotherDungeonBossCellModel, nint anotherBattleInfo, nint anotherBossInfos, CBool isWin, CBool showBossLabel, CBool isDisplayInfo, nint method) =>
         AnotherDungeonBossCellModelCtorHook!.Original(anotherDungeonBossCellModel, anotherBattleInfo, anotherBossInfos, isWin, showBossLabel, true, method);
-
-    [GameSymbol("Command.UI.SingleTapButton$$ForceTapSteamUICursor")]
-    private static delegate* unmanaged<void*, nint, void> forceTapSteamUICursor;
-
-    private static readonly Dictionary<(nint, nint), long> lastPressedButtons = new();
-    public static bool PressButton(SingleTapButton* singleTapButton, uint lockoutMs = 2000)
-    {
-        if (lastPressedButtons.TryGetValue(((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject), out var timestampMs) && timestampMs > DateTimeOffset.Now.ToUnixTimeMilliseconds()) return false;
-
-        var isSteamKeyAvailable = (delegate* unmanaged<SingleTapButton*, nint, CBool>)singleTapButton->klass->vtable.IsSteamKeyAvailable.methodPtr;
-        if (!isSteamKeyAvailable(singleTapButton, 0)) return false;
-
-        if (lockoutMs > 0)
-            lastPressedButtons[((nint)singleTapButton, (nint)singleTapButton->steamUICursorTapSubject)] = DateTimeOffset.Now.ToUnixTimeMilliseconds() + lockoutMs;
-
-        onUpdate.Add(() => forceTapSteamUICursor(singleTapButton, 0));
-        return true;
-    }
-
-    public static bool PressButton(TintButton* button) => PressButton((SingleTapButton*)button);
 
     private static long lastMateriaRecipeId;
     private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);

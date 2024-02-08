@@ -15,7 +15,7 @@ public static unsafe class BossDetailInfo
         var battleEnemyStore = (BattleWork.BattleEnemyStore*)bossModel->battleEnemyInfo;
         var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
         var elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
-        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->klass->vtable.get_TotalStatusParamInfo.methodPtr;
+        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPointer;
         var statusParamInfo = vf(battleEnemyStore, 0);
         if (statusParamInfo == null) return;
 

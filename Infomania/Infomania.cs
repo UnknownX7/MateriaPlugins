@@ -28,7 +28,7 @@ public unsafe class Infomania : IMateriaPlugin
             DrawSettings();
 
         var currentModal = ModalManager.Instance?.CurrentModal;
-        switch (currentModal?.TypeName)
+        switch (currentModal?.Type.FullName)
         {
             case "Command.OutGame.Gift.GiftModalPresenter" when Config.EnableGiftInfo:
                 GiftInfo.Draw((GiftModalPresenter*)currentModal.NativePtr);
@@ -46,7 +46,7 @@ public unsafe class Infomania : IMateriaPlugin
         }
 
         var currentScreen = ScreenManager.Instance?.CurrentScreen;
-        switch (currentScreen?.TypeName)
+        switch (currentScreen?.Type.FullName)
         {
             case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
