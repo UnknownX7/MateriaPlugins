@@ -5,17 +5,13 @@ using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
 using System;
-using System.Collections.Generic;
 using System.Numerics;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Shop;
-using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.Custom;
-using ModalManager = Materia.Game.ModalManager;
-using ScreenManager = Materia.Game.ScreenManager;
 using BattleSystem = Materia.Game.BattleSystem;
 
 namespace SettingsPlus;
@@ -91,11 +87,18 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
         if (BattleSystem.Instance is { } battleSystem && BattleHUD.Instance is { } battleHUD)
         {
-            if (Config.EnableSkipBattleCutscenes && (battleHUD.CurrentStatus == HUD.Status.BossEncounterCutScene || (battleHUD.CurrentStatus == HUD.Status.SpecialSkill && battleSystem.IsLimitBreak)))
+            if (Config.EnableSkipBattleCutscenes)
             {
-                GameInterop.SendKey(VirtualKey.VK_CONTROL);
-                //PressButton(battleHUD.NativePtr->cutsceneSkipper->tapArea);
-                //PressButton(battleHUD.NativePtr->cutsceneSkipper->skipButton); // TODO: Does not work for summon cutscene
+                switch (battleHUD.CurrentStatus)
+                {
+                    case HUD.Status.BossEncounterCutScene: // TODO: Does not work for summon cutscene
+                        GameInterop.TapButton(battleHUD.NativePtr->cutsceneSkipper->tapArea);
+                        GameInterop.TapButton(battleHUD.NativePtr->cutsceneSkipper->skipButton);
+                        break;
+                    case HUD.Status.SpecialSkill when battleSystem.IsLimitBreak:
+                        GameInterop.SendKey(VirtualKey.VK_CONTROL);
+                        break;
+                }
             }
         }
     }
