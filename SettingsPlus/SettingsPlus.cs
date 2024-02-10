@@ -7,6 +7,7 @@ using Materia.Plugin;
 using System;
 using System.Numerics;
 using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
@@ -78,8 +79,30 @@ public unsafe class SettingsPlus : IMateriaPlugin
         var currentScreen = ScreenManager.Instance?.CurrentScreen;
         switch (currentScreen?.Type.FullName)
         {
+            case "Command.OutGame.Synthesis.SynthesisTopScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe && lastMateriaRecipeId == 0:
+                var synthesisTop = (SynthesisTopScreenPresenter*)currentScreen.NativePtr;
+                var synthesisArray = synthesisTop->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray;
+                for (int i = 0; i < synthesisArray->max_length; i++)
+                {
+                    var synth = synthesisArray->GetPointer(i);
+                    if (synth->cellModel->craftType->GetValue() != CraftType.Materia) continue;
+
+                    switch (synth->view->currentViewType)
+                    {
+                        case SynthesisViewType.Synthesis:
+                        case SynthesisViewType.Acceptance:
+                            var synthesisStore = (SynthesisWork.SynthesisStore*)synth->cellModel->synthesisInfo->value;
+                            var materiaRecipeInfo = (MateriaWork.MateriaRecipeStore*)synthesisStore->materiaRecipeInfo;
+                            lastMateriaRecipeId = materiaRecipeInfo->masterMateriaRecipe->id;
+                            break;
+                    }
+
+                    if (lastMateriaRecipeId != 0) break;
+                }
+                break;
             case "Command.OutGame.Synthesis.SynthesisSelectScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe:
                 var synthesisSelect = (SynthesisSelectScreenPresenter*)currentScreen.NativePtr;
+                if (synthesisSelect->screenSetupParameter->synthesisRecipeViewType != SynthesisRecipeViewType.Materia) break;
                 var materiaRecipeStore = (MateriaWork.MateriaRecipeStore*)synthesisSelect->selectRecipe;
                 lastMateriaRecipeId = materiaRecipeStore->masterMateriaRecipe->id;
                 break;
