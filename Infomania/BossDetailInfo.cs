@@ -9,13 +9,13 @@ public static unsafe class BossDetailInfo
 {
     public static void DrawBossDetailInfo(BossDetailModalPresenter* bossModal)
     {
-        var bossModel = bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPointer(0)->bossDataSelectModel : null;
+        var bossModel = bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPtr(0)->bossDataSelectModel : null;
         if (bossModel == null) return;
 
         var battleEnemyStore = (BattleWork.BattleEnemyStore*)bossModel->battleEnemyInfo;
         var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
         var elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
-        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPointer;
+        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPtr;
         var statusParamInfo = vf(battleEnemyStore, 0);
         if (statusParamInfo == null) return;
 

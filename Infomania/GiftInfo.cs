@@ -19,7 +19,7 @@ public static unsafe class GiftInfo
 
             for (int j = 0; j < entry->value->size; j++)
             {
-                var giftRewardInfo = entry->value->GetPointer(j);
+                var giftRewardInfo = entry->value->GetPtr(j);
                 if (giftRewardInfo->rewardType != RewardType.Item || giftRewardInfo->targetId != 17002) continue;
                 staminaTonicCount += giftRewardInfo->count;
                 firstExpiry = Math.Min(giftRewardInfo->giftInfo->expireDatetime, firstExpiry);

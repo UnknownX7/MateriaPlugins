@@ -84,7 +84,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 var synthesisArray = synthesisTop->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray;
                 for (int i = 0; i < synthesisArray->max_length; i++)
                 {
-                    var synth = synthesisArray->GetPointer(i);
+                    var synth = synthesisArray->GetPtr(i);
                     if (synth->cellModel->craftType->GetValue() != CraftType.Materia) continue;
 
                     switch (synth->view->currentViewType)

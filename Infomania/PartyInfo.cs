@@ -32,7 +32,7 @@ public static unsafe class PartyInfo
         {
             case 1:
             {
-                var character = selectedParty->partyCharacterInfos->GetPointer(0);
+                var character = selectedParty->partyCharacterInfos->GetPtr(0);
                 if (character->characterId == 0) return;
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
                 DrawStats(character, true);
@@ -41,9 +41,9 @@ public static unsafe class PartyInfo
             }
             case 3:
             {
-                var leftCharacter = selectedParty->partyCharacterInfos->GetPointer(1);
-                var middleCharacter = selectedParty->partyCharacterInfos->GetPointer(0);
-                var rightCharacter = selectedParty->partyCharacterInfos->GetPointer(2);
+                var leftCharacter = selectedParty->partyCharacterInfos->GetPtr(1);
+                var middleCharacter = selectedParty->partyCharacterInfos->GetPtr(0);
+                var rightCharacter = selectedParty->partyCharacterInfos->GetPtr(2);
                 if (leftCharacter->characterId == 0 && middleCharacter->characterId == 0 && rightCharacter->characterId == 0) return;
 
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
@@ -91,7 +91,7 @@ public static unsafe class PartyInfo
 
     public static void DrawPartyEditInfo(PartyEditTopScreenPresenter* partyEdit)
     {
-        var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPointer(partyEdit->selectIndex);
+        var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
         if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is PartyEditSelectType.BattleWear or PartyEditSelectType.MainWeapon or PartyEditSelectType.AbilityWeapon or PartyEditSelectType.SubWeapon0 or PartyEditSelectType.SubWeapon1 or PartyEditSelectType.SubWeapon2)
@@ -112,7 +112,7 @@ public static unsafe class PartyInfo
 
         for (int i = 0; i < characterInfo->passiveSkillEffectInfos->max_length; i++)
         {
-            var skillEffectInfo = characterInfo->passiveSkillEffectInfos->GetPointer(i);
+            var skillEffectInfo = characterInfo->passiveSkillEffectInfos->GetPtr(i);
             switch (skillEffectInfo->passiveSkillType)
             {
                 case PassiveSkillType.ElementDamage:
