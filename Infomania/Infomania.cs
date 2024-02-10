@@ -37,7 +37,7 @@ public unsafe class Infomania : IMateriaPlugin
                 BossDetailInfo.DrawBossDetailInfo((BossDetailModalPresenter*)currentModal.NativePtr);
                 return;
             case "Command.OutGame.BossSelectDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.DrawBossSelectDetailInfo((BossSelectDetailModalPresenter*)currentModal.NativePtr);
+                BossDetailInfo.DrawBossSelectDetailInfo();
                 return;
             case null:
                 break;

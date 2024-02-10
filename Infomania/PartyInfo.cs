@@ -10,10 +10,7 @@ namespace Infomania;
 public static unsafe class PartyInfo
 {
     private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
-
-    private static int CalcOwnDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
-
-    private static int CalcEnemyBaseDamage(int attack, int defense) => attack * 2000 / (defense * 100 + 10000);
+    private static int CalcAllyDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
 
     private static int CalcDamage(int baseDamage, int skillCoefficient, int potencyAdd, int potencyCoefficient, int stanceBonusCoefficient)
     {
@@ -202,7 +199,7 @@ public static unsafe class PartyInfo
         ImGui.Spacing();
         if (displayHeal)
             ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower}");
-        ImGui.TextUnformatted($"Phys. Res.: {CalcOwnDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
-        ImGui.TextUnformatted($"Mag. Res.: {CalcOwnDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
+        ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
+        ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
     }
 }

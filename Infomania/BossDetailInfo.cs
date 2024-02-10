@@ -1,22 +1,43 @@
-﻿using ImGuiNET;
+using ImGuiNET;
 using System.Numerics;
 using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Boss;
 using ECGen.Generated.Command.Work;
+using Materia.Attributes;
+using Materia.Game;
+using Materia;
 
 namespace Infomania;
 
+[Injection]
 public static unsafe class BossDetailInfo
 {
-    public static void DrawBossDetailInfo(BossDetailModalPresenter* bossModal)
+    private static BossDataSelectModel* cachedBossModel;
+
+    private static int CalcEnemyBaseDamage(int attack, int defense) => attack * 2000 / (defense * 100 + 10000);
+    private static int CalcEnemyDamageReduction(int defense) => 100 - (int)(32000 / (defense * 2.2f + 100));
+    public static void DrawBossDetailInfo(BossDetailModalPresenter* bossModal) => DrawStats(bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPtr(0)->bossDataSelectModel : null);
+    public static void DrawBossSelectDetailInfo() => DrawStats(cachedBossModel);
+
+    private static void DrawStats(BossDataSelectModel* bossModel)
     {
-        var bossModel = bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPtr(0)->bossDataSelectModel : null;
         if (bossModel == null) return;
 
-        var battleEnemyStore = (BattleWork.BattleEnemyStore*)bossModel->battleEnemyInfo;
-        var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
-        var elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
-        var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPtr;
-        var statusParamInfo = vf(battleEnemyStore, 0);
+        StatusParamInfo* statusParamInfo = null;
+        ElementResistanceInfo* elementResistanceInfo = null;
+        if (Il2CppType<BattleWork.BattleEnemyStore>.TryAs(bossModel->battleEnemyInfo, out var battleEnemyStore)) // In menus
+        {
+            var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
+            elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
+            var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPtr;
+            statusParamInfo = vf(battleEnemyStore, 0);
+        }
+        else if (Il2CppType<BattleEnemyInfo>.TryAs(bossModel->battleEnemyInfo, out var battleEnemyInfo)) // In battle
+        {
+            elementResistanceInfo = battleEnemyInfo->elementResistanceInfo;
+            statusParamInfo = battleEnemyInfo->totalStatus;
+        }
+
         if (statusParamInfo == null) return;
 
         ImGui.Begin("BossDetailInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
@@ -25,8 +46,8 @@ public static unsafe class BossDetailInfo
         ImGui.TextUnformatted($"HP: {(statusParamInfo->dummyHp > 0 ? statusParamInfo->dummyHp : statusParamInfo->hp)}");
         ImGui.TextUnformatted($"PATK: {statusParamInfo->physicalAttack}");
         ImGui.TextUnformatted($"MATK: {statusParamInfo->magicalAttack}");
-        ImGui.TextUnformatted($"PDEF: {statusParamInfo->physicalDefence}");
-        ImGui.TextUnformatted($"MDEF: {statusParamInfo->magicalDefence}");
+        ImGui.TextUnformatted($"PDEF: {statusParamInfo->physicalDefence} ({CalcEnemyDamageReduction(statusParamInfo->physicalDefence)}%)");
+        ImGui.TextUnformatted($"MDEF: {statusParamInfo->magicalDefence} ({CalcEnemyDamageReduction(statusParamInfo->magicalDefence)}%)");
         if (statusParamInfo->healingPower != 0)
             ImGui.TextUnformatted($"HEAL: {statusParamInfo->healingPower}");
         ImGui.EndGroup();
@@ -49,14 +70,18 @@ public static unsafe class BossDetailInfo
         ImGui.End();
     }
 
-    public static void DrawBossSelectDetailInfo(BossSelectDetailModalPresenter* bossModal)
-    {
-        // Info is unavailable from here
-    }
-
     private static void DrawElementResistText(string type, int permil)
     {
         if (permil != 0)
             ImGui.TextUnformatted($"{type}: {permil / 10}%");
+    }
+
+    private delegate void SetupContentDelegate(BossDetailDescriptionContent* bossDetailDescriptionContent, BossDataSelectModel* model, nint method);
+    [GameSymbol("Command.OutGame.Boss.BossDetailDescriptionContent$$SetupContent")]
+    private static IMateriaHook<SetupContentDelegate>? SetupContentHook;
+    private static void SetupContentDetour(BossDetailDescriptionContent* bossDetailDescriptionContent, BossDataSelectModel* model, nint method)
+    {
+        cachedBossModel = model;
+        SetupContentHook!.Original(bossDetailDescriptionContent, model, method);
     }
 }
