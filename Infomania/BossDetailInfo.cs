@@ -25,14 +25,14 @@ public static unsafe class BossDetailInfo
 
         StatusParamInfo* statusParamInfo = null;
         ElementResistanceInfo* elementResistanceInfo = null;
-        if (Il2CppType<BattleWork.BattleEnemyStore>.TryAs(bossModel->battleEnemyInfo, out var battleEnemyStore)) // In menus
+        if (Il2CppType<BattleWork.BattleEnemyStore>.Is(bossModel->battleEnemyInfo, out var battleEnemyStore)) // In menus
         {
             var enemyStore = (EnemyWork.EnemyStore*)bossModel->enemyInfo;
             elementResistanceInfo = (ElementResistanceInfo*)enemyStore->elementResistanceInfo;
             var vf = (delegate* unmanaged<BattleWork.BattleEnemyStore*, nint, StatusParamInfo*>)battleEnemyStore->@class->vtable.get_TotalStatusParamInfo.methodPtr;
             statusParamInfo = vf(battleEnemyStore, 0);
         }
-        else if (Il2CppType<BattleEnemyInfo>.TryAs(bossModel->battleEnemyInfo, out var battleEnemyInfo)) // In battle
+        else if (Il2CppType<BattleEnemyInfo>.Is(bossModel->battleEnemyInfo, out var battleEnemyInfo)) // In battle
         {
             elementResistanceInfo = battleEnemyInfo->elementResistanceInfo;
             statusParamInfo = battleEnemyInfo->totalStatus;
