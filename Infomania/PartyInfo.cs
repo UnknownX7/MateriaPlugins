@@ -20,12 +20,12 @@ public static unsafe class PartyInfo
 
     private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
 
-    public static void DrawPartySelectInfo(PartySelectScreenPresenter* partySelect)
+    public static void DrawPartySelectInfo(PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>* partySelect)
     {
         var selectedParty = partySelect->partySelect->selectPartyInfo;
         if (selectedParty == null) return;
 
-        switch (selectedParty->partyCharacterInfos->max_length)
+        switch (selectedParty->partyCharacterInfos->size)
         {
             case 1:
             {
@@ -86,7 +86,7 @@ public static unsafe class PartyInfo
         }
     }
 
-    public static void DrawPartyEditInfo(PartyEditTopScreenPresenter* partyEdit)
+    public static void DrawPartyEditInfo(PartyEditTopScreenPresenterBase* partyEdit)
     {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
@@ -107,7 +107,7 @@ public static unsafe class PartyInfo
         var magCoefficient = 0;
         var elementalPotencies = stackalloc (int, int)[8];
 
-        for (int i = 0; i < characterInfo->passiveSkillEffectInfos->max_length; i++)
+        for (int i = 0; i < characterInfo->passiveSkillEffectInfos->size; i++)
         {
             var skillEffectInfo = characterInfo->passiveSkillEffectInfos->GetPtr(i);
             switch (skillEffectInfo->passiveSkillType)

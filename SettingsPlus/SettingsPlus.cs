@@ -12,7 +12,7 @@ using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.Work;
-using ECGen.Generated.Custom;
+using ECGen.Generated.System.Collections.Generic;
 using BattleSystem = Materia.Game.BattleSystem;
 
 namespace SettingsPlus;
@@ -82,7 +82,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
             case "Command.OutGame.Synthesis.SynthesisTopScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe && lastMateriaRecipeId == 0:
                 var synthesisTop = (SynthesisTopScreenPresenter*)currentScreen.NativePtr;
                 var synthesisArray = synthesisTop->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray;
-                for (int i = 0; i < synthesisArray->max_length; i++)
+                for (int i = 0; i < synthesisArray->size; i++)
                 {
                     var synth = synthesisArray->GetPtr(i);
                     if (synth->cellModel->craftType->GetValue() != CraftType.Materia) continue;
