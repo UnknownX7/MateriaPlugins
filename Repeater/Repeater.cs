@@ -1,8 +1,12 @@
 ﻿using ImGuiNET;
-using Materia;
 using Materia.Game;
 using Materia.Plugin;
-using System.Diagnostics;
+using ECGen.Generated.Command;
+using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.KeyInput;
+using ECGen.Generated.Command.UI;
+using BattleSystem = Materia.Game.BattleSystem;
+using ModalManager = Materia.Game.ModalManager;
 
 namespace Repeater;
 
@@ -12,7 +16,7 @@ public unsafe class Repeater : IMateriaPlugin
     public string Description => "Repeats battles for you";
 
     private bool draw = false;
-    private readonly Stopwatch repeatStopwatch = new();
+    private bool repeating = false;
 
     public Repeater(PluginServiceManager pluginServiceManager)
     {
@@ -23,38 +27,44 @@ public unsafe class Repeater : IMateriaPlugin
 
     public void Update()
     {
-        if (repeatStopwatch is not { IsRunning: true, ElapsedMilliseconds: > 500 } || ModalManager.Instance?.ModalCount > 1 || BattleSystem.Instance is not { } battleSystem) return;
+        if (!repeating || BattleSystem.Instance is not { } battleSystem) return;
 
         if (battleSystem.IsDefeated)
         {
-            repeatStopwatch.Reset();
+            repeating = false;
             return;
         }
 
-        if (battleSystem.IsBattleWon)
-            GameInterop.SendKey(VirtualKey.VK_RETURN);
-
-        repeatStopwatch.Restart();
+        if (ModalManager.Instance?.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
+            TapKeyAction(KeyAction.Confirm, 50);
     }
 
     public void Draw()
     {
         if (!draw)
         {
-            if (repeatStopwatch.IsRunning)
-                repeatStopwatch.Reset();
+            repeating = false;
             return;
         }
 
         ImGui.Begin("Repeater", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        var _ = repeatStopwatch.IsRunning;
-        if (ImGui.Checkbox("##Auto", ref _))
-        {
-            if (_)
-                repeatStopwatch.Start();
-            else
-                repeatStopwatch.Reset();
-        }
+        ImGui.Checkbox("##Auto", ref repeating);
         ImGui.End();
+    }
+
+    private static bool TapKeyAction(KeyAction keyAction, uint lockoutMs = 2000)
+    {
+        var ret = false;
+        if (GameInterop.GetSingletonInstance<KeyMapManager>() is var keyMapManager && (keyMapManager == null || keyMapManager->keyMaps->size == 0)) return ret;
+
+        var keyMap = keyMapManager->keyMaps->GetPtr(keyMapManager->keyMaps->size - 1);
+        for (int i = 0; i < keyMap->keyHandlers->size; i++)
+        {
+            if (!Il2CppType<SingleTapButton>.Is(keyMap->keyHandlers->GetPtr(i), out var singleTapButton)) continue;
+            var buttonKeyAction = singleTapButton->steamKeyAction != KeyAction.None ? singleTapButton->steamKeyAction : singleTapButton->steamKeyActionDefault;
+            if (buttonKeyAction == keyAction || buttonKeyAction == KeyAction.Any)
+                ret |= GameInterop.TapButton(singleTapButton, lockoutMs);
+        }
+        return ret;
     }
 }

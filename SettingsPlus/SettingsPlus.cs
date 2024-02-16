@@ -6,14 +6,19 @@ using Materia.Game;
 using Materia.Plugin;
 using System;
 using System.Numerics;
+using ECGen.Generated.Command;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.Enums;
+using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
+using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.System.Collections.Generic;
 using BattleSystem = Materia.Game.BattleSystem;
+using ModalManager = Materia.Game.ModalManager;
+using ScreenManager = Materia.Game.ScreenManager;
 
 namespace SettingsPlus;
 
@@ -114,12 +119,13 @@ public unsafe class SettingsPlus : IMateriaPlugin
             {
                 switch (battleHUD.CurrentStatus)
                 {
-                    case HUD.Status.BossEncounterCutScene: // TODO: Does not work for summon cutscene
-                        GameInterop.TapButton(battleHUD.NativePtr->cutsceneSkipper->tapArea);
-                        GameInterop.TapButton(battleHUD.NativePtr->cutsceneSkipper->skipButton);
+                    case HUD.Status.BossEncounterCutScene:
+                    case HUD.Status.BossDefeatCutScene:
+                        TapKeyAction(KeyAction.Skip);
                         break;
                     case HUD.Status.SpecialSkill when battleSystem.IsLimitBreak:
-                        GameInterop.SendKey(VirtualKey.VK_CONTROL);
+                        if (GameInterop.GetSharedMonoBehaviourInstance<MoviePlayer>() is var moviePlayer && moviePlayer != null && moviePlayer->movieStatus->GetValue() == MoviePlayer.MovieStatus.Play)
+                            TapKeyAction(KeyAction.Skip, 300);
                         break;
                 }
             }
@@ -209,6 +215,22 @@ public unsafe class SettingsPlus : IMateriaPlugin
         ImGuiEx.SetItemTooltip("Does not currently work with certain recipes!");
 
         ImGui.End();
+    }
+
+    private static bool TapKeyAction(KeyAction keyAction, uint lockoutMs = 2000)
+    {
+        var ret = false;
+        if (GameInterop.GetSingletonInstance<KeyMapManager>() is var keyMapManager && (keyMapManager == null || keyMapManager->keyMaps->size == 0)) return ret;
+
+        var keyMap = keyMapManager->keyMaps->GetPtr(keyMapManager->keyMaps->size - 1);
+        for (int i = 0; i < keyMap->keyHandlers->size; i++)
+        {
+            if (!Il2CppType<SingleTapButton>.Is(keyMap->keyHandlers->GetPtr(i), out var singleTapButton)) continue;
+            var buttonKeyAction = singleTapButton->steamKeyAction != KeyAction.None ? singleTapButton->steamKeyAction : singleTapButton->steamKeyActionDefault;
+            if (buttonKeyAction == keyAction || buttonKeyAction == KeyAction.Any)
+                ret |= GameInterop.TapButton(singleTapButton, lockoutMs);
+        }
+        return ret;
     }
 
     [GameSymbol("Command.SteamWindowUtility$$SetResolution")]
