@@ -121,7 +121,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 {
                     case HUD.Status.BossEncounterCutScene:
                     case HUD.Status.BossDefeatCutScene:
-                        TapKeyAction(KeyAction.Skip);
+                        TapKeyAction(KeyAction.Skip, 15000);
                         break;
                     case HUD.Status.SpecialSkill when battleSystem.IsLimitBreak:
                         if (GameInterop.GetSharedMonoBehaviourInstance<MoviePlayer>() is var moviePlayer && moviePlayer != null && moviePlayer->movieStatus->GetValue() == MoviePlayer.MovieStatus.Play)
