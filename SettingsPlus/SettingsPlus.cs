@@ -19,6 +19,7 @@ using ECGen.Generated.System.Collections.Generic;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
 using ScreenManager = Materia.Game.ScreenManager;
+using WorkManager = Materia.Game.WorkManager;
 
 namespace SettingsPlus;
 
@@ -46,6 +47,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
             IsValidActionCameraWaitingTimeHook?.Enable();
         if (Config.DisableCharacterParts)
             AdequatelyWeaponMedalItemHook?.Enable();
+        if (Config.EnableBetterWeaponNotificationIcon)
+            GridWeaponSelectModelCtorHook?.Enable();
         if (Config.DisableHiddenData)
             AnotherDungeonBossCellModelCtorHook?.Enable();
         if (Config.EnableRememberLastSelectedMateriaRecipe)
@@ -175,6 +178,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Prevents the optimize button from using\ncharacter specific parts when overboosting");
 
+        b = Config.EnableBetterWeaponNotificationIcon;
+        if (ImGui.Checkbox("Enable Better Weapon Notif. Icon", ref b))
+        {
+            GridWeaponSelectModelCtorHook?.Toggle();
+            Config.EnableBetterWeaponNotificationIcon = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Does not consider character specific parts when displaying if a weapon\ncan be overboosted and only displays the notification icon if it can");
+
         b = Config.DisableHiddenData;
         if (ImGui.Checkbox("Reveal Hidden Dungeon Bosses", ref b))
         {
@@ -275,5 +287,26 @@ public unsafe class SettingsPlus : IMateriaPlugin
         SynthesisSelectScreenSetupParameterCtorHook!.Original(param, selectDataIndex, synthesisRecipeViewType, method);
         if (synthesisRecipeViewType == 1)
             param->materiaRecipeId = lastMateriaRecipeId;
+    }
+
+    private delegate void GridWeaponSelectModelCtorDelegate(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, nint method);
+    [GameSymbol("Command.OutGame.GridWeaponSelectModel$$.ctor", EnableHook = false)]
+    private static IMateriaHook<GridWeaponSelectModelCtorDelegate>? GridWeaponSelectModelCtorHook;
+    private static void GridWeaponSelectModelCtorDetour(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, nint method)
+    {
+        if (isShowEnhanceButton)
+        {
+            var medalItem = WorkManager.GetItemStore(info->masterWeapon->weaponMedalItemId);
+            if (medalItem != null)
+            {
+                if (info->canUpgradeLimit)
+                    info->canUpgradeLimit = medalItem->count >= 200;
+                else if (info->canUpgradeRank)
+                    info->canUpgradeRank = medalItem->count >= 200;
+                isShowEnhanceButton = info->canUpgradeLimit || info->canUpgradeRank;
+            }
+        }
+
+        GridWeaponSelectModelCtorHook!.Original(gridWeaponSelectModel, index, info, selectEnable, equipCharacter, isSelected, isSelectAndEquipment, isEventBonusActive, isDisplayEquipBadge, isShowEnhanceButton, isNew, showEnhanceNotice, isDisplayWeapon, filterBonusEventBaseId, method);
     }
 }

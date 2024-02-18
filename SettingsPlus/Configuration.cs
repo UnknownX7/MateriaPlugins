@@ -7,6 +7,7 @@ public class Configuration : PluginConfiguration
     public bool EnableStaticCamera { get; set; }
     public bool DisableActionCamera { get; set; }
     public bool DisableCharacterParts { get; set; }
+    public bool EnableBetterWeaponNotificationIcon { get; set; }
     public bool DisableHiddenData { get; set; }
     public bool EnableSkipBattleCutscenes { get; set; }
     public bool EnableSkipGilShopConfirmation { get; set; }
