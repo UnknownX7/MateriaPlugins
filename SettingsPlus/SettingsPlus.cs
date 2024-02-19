@@ -67,17 +67,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
         var currentModal = ModalManager.Instance?.CurrentModal;
         switch (currentModal?.Type.FullName)
         {
-            case "Command.OutGame.Shop.ShopCheckPurchaseItemsModal" when Config.EnableSkipGilShopConfirmation:
-                var purchaseItemsModal = (ShopCheckPurchaseItemsModal*)currentModal.NativePtr;
-                if (purchaseItemsModal->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && purchaseItemsModal->consumptionItemField->consumptionItemId == 1 && purchaseItemsModal->currentShopProductParameter->ShopId == 101002)
-                    GameInterop.TapButton(purchaseItemsModal->consumptionItemField->okButton);
-                return;
-            case "Command.OutGame.Shop.ShopResetLineupModal" when Config.EnableSkipGilResetShopConfirmation:
-                var shopResetLineupModal = (ShopResetLineupModal*)currentModal.NativePtr;
-                var shopStore = (ShopWork.ShopStore*)shopResetLineupModal->currentShopInfo;
-                if (shopResetLineupModal->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id is 101002 or 207001)
-                    GameInterop.TapButton(shopResetLineupModal->consumptionItemField->okButton);
-                return;
             case null:
                 break;
             default:
@@ -201,21 +190,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.EnableSkipBattleCutscenes = b;
             Config.Save();
         }
-
-        b = Config.EnableSkipGilShopConfirmation;
-        if (ImGui.Checkbox("Auto Skip Gil Shop Confirmation", ref b))
-        {
-            Config.EnableSkipGilShopConfirmation = b;
-            Config.Save();
-        }
-
-        b = Config.EnableSkipGilResetShopConfirmation;
-        if (ImGui.Checkbox("Auto Skip Shop Reset Confirmation", ref b))
-        {
-            Config.EnableSkipGilResetShopConfirmation = b;
-            Config.Save();
-        }
-        ImGuiEx.SetItemTooltip("Works on the Gil and Chocobo Medals shops");
 
         b = Config.EnableRememberLastSelectedMateriaRecipe;
         if (ImGui.Checkbox("Auto Select Last Materia Recipe", ref b))
