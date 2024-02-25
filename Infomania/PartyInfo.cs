@@ -166,34 +166,7 @@ public static unsafe class PartyInfo
         {
             var (a, c) = elementalPotencies[i];
             if (a == 0 && c == 0) continue;
-
-            var typeStr = i switch
-            {
-                0 => "Fire",
-                1 => "Ice",
-                2 => "Lightning",
-                3 => "Earth",
-                4 => "Water",
-                5 => "Wind",
-                6 => "Holy",
-                7 => "Dark",
-                _ => "?"
-            };
-
-            var color = i switch
-            {
-                0 => new Vector4(1, 0.4f, 0.4f, 1),
-                1 => new Vector4(0.4f, 0.55f, 1, 1),
-                2 => new Vector4(0.9f, 1, 0.15f, 1),
-                3 => new Vector4(1, 0.6f, 0.25f, 1),
-                4 => new Vector4(0.4f, 1, 1, 1),
-                5 => new Vector4(0.4f, 0.9f, 0.45f, 1),
-                6 => new Vector4(1, 1, 0.67f, 1),
-                7 => new Vector4(0.9f, 0.4f, 0.9f, 1),
-                _ => Vector4.One
-            };
-
-            ImGui.TextColored(color, $"{typeStr}: {CalcDamage(baseDamage, 1000, a + add, c + coefficient, 0)}");
+            ImGui.TextColored(GetElementColor((ElementType)(i + 2)), $"{GetElementName((ElementType)(i + 2))}: {CalcDamage(baseDamage, 1000, a + add, c + coefficient, 0)}");
         }
 
         ImGui.Spacing();
@@ -202,4 +175,31 @@ public static unsafe class PartyInfo
         ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
         ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
     }
+
+    public static string GetElementName(ElementType element) => element switch
+    {
+        ElementType.No => "Non. Elem.",
+        ElementType.Fire => "Fire",
+        ElementType.Ice => "Ice",
+        ElementType.Thunder => "Lightning",
+        ElementType.Earth => "Earth",
+        ElementType.Water => "Water",
+        ElementType.Wind => "Wind",
+        ElementType.Holy => "Holy",
+        ElementType.Dark => "Dark",
+        _ => "?"
+    };
+
+    public static Vector4 GetElementColor(ElementType element) => element switch
+    {
+        ElementType.Fire => new Vector4(1, 0.4f, 0.4f, 1),
+        ElementType.Ice => new Vector4(0.4f, 0.55f, 1, 1),
+        ElementType.Thunder => new Vector4(0.9f, 1, 0.15f, 1),
+        ElementType.Earth => new Vector4(1, 0.6f, 0.25f, 1),
+        ElementType.Water => new Vector4(0.4f, 1, 1, 1),
+        ElementType.Wind => new Vector4(0.4f, 0.9f, 0.45f, 1),
+        ElementType.Holy => new Vector4(1, 1, 0.67f, 1),
+        ElementType.Dark => new Vector4(0.9f, 0.4f, 0.9f, 1),
+        _ => Vector4.One
+    };
 }

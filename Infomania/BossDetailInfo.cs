@@ -1,5 +1,6 @@
 using ImGuiNET;
 using System.Numerics;
+using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Boss;
 using ECGen.Generated.Command.Work;
@@ -57,23 +58,23 @@ public static unsafe class BossDetailInfo
         ImGui.SameLine();
 
         ImGui.BeginGroup();
-        DrawElementResistText("Fire", elementResistanceInfo->resistFireMagnificationPermil);
-        DrawElementResistText("Ice", elementResistanceInfo->resistIceMagnificationPermil);
-        DrawElementResistText("Thunder", elementResistanceInfo->resistThunderMagnificationPermil);
-        DrawElementResistText("Earth", elementResistanceInfo->resistEarthMagnificationPermil);
-        DrawElementResistText("Water", elementResistanceInfo->resistWaterMagnificationPermil);
-        DrawElementResistText("Wind", elementResistanceInfo->resistWindMagnificationPermil);
-        DrawElementResistText("Holy", elementResistanceInfo->resistHolyMagnificationPermil);
-        DrawElementResistText("Dark", elementResistanceInfo->resistDarkMagnificationPermil);
+        DrawElementResistText(ElementType.Fire, elementResistanceInfo->resistFireMagnificationPermil);
+        DrawElementResistText(ElementType.Ice, elementResistanceInfo->resistIceMagnificationPermil);
+        DrawElementResistText(ElementType.Thunder, elementResistanceInfo->resistThunderMagnificationPermil);
+        DrawElementResistText(ElementType.Earth, elementResistanceInfo->resistEarthMagnificationPermil);
+        DrawElementResistText(ElementType.Water, elementResistanceInfo->resistWaterMagnificationPermil);
+        DrawElementResistText(ElementType.Wind, elementResistanceInfo->resistWindMagnificationPermil);
+        DrawElementResistText(ElementType.Holy, elementResistanceInfo->resistHolyMagnificationPermil);
+        DrawElementResistText(ElementType.Dark, elementResistanceInfo->resistDarkMagnificationPermil);
         ImGui.EndGroup();
 
         ImGui.End();
     }
 
-    private static void DrawElementResistText(string type, int permil)
+    private static void DrawElementResistText(ElementType element, int permil)
     {
         if (permil != 0)
-            ImGui.TextUnformatted($"{type}: {permil / 10}%");
+            ImGui.TextColored(PartyInfo.GetElementColor(element), $"{PartyInfo.GetElementName(element)}: {permil / 10}%%");
     }
 
     private delegate void SetupContentDelegate(BossDetailDescriptionContent* bossDetailDescriptionContent, BossDataSelectModel* model, nint method);
