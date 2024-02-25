@@ -11,7 +11,6 @@ using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame;
-using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.Work;

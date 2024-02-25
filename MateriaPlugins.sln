@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Repeater", "Repeater\Repeat
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SettingsPlus", "SettingsPlus\SettingsPlus.csproj", "{9A398D6C-382D-4BEB-A562-1E2C84C11283}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Infomania", "Infomania\Infomania.csproj", "{F66C2FE0-C298-4423-9B22-FB265AF398D5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infomania", "Infomania\Infomania.csproj", "{F66C2FE0-C298-4423-9B22-FB265AF398D5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MicroMacros", "MicroMacros\MicroMacros.csproj", "{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{F66C2FE0-C298-4423-9B22-FB265AF398D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F66C2FE0-C298-4423-9B22-FB265AF398D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F66C2FE0-C298-4423-9B22-FB265AF398D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

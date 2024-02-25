@@ -1,7 +1,10 @@
 ﻿using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Synthesis;
+using ECGen.Generated.Command.UI;
 using ImGuiNET;
 using Materia.Game;
+using ModalManager = Materia.Game.ModalManager;
+using ScreenManager = Materia.Game.ScreenManager;
 
 namespace MicroMacros;
 
@@ -12,6 +15,12 @@ public unsafe class SynthAssist : IMicroMacro
 
     public void Update()
     {
+        if (ModalManager.Instance?.GetCurrentModal<SimpleModalPresenter>() != null) // Inventory full, other general errors
+        {
+            enabled = false;
+            return;
+        }
+
         if (ScreenManager.Instance?.GetCurrentScreen<SynthesisTopScreenPresenter>() is { } synthesisTopScreenPresenter)
         {
             if (ModalManager.Instance?.GetCurrentModal<SynthesisBulkReceiveModalPresenter>() is { } synthesisBulkReceiveModalPresenter)
