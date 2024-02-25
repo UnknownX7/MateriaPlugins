@@ -58,6 +58,7 @@ public static unsafe class PartyInfo
                     {
                         ImGui.SameLine();
                         ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                        ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
                         ImGui.SameLine();
                     }
 
@@ -72,6 +73,7 @@ public static unsafe class PartyInfo
                     {
                         ImGui.SameLine();
                         ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                        ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
                         ImGui.SameLine();
                     }
 
@@ -91,11 +93,18 @@ public static unsafe class PartyInfo
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
-        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is PartyEditSelectType.BattleWear or PartyEditSelectType.MainWeapon or PartyEditSelectType.AbilityWeapon or PartyEditSelectType.SubWeapon0 or PartyEditSelectType.SubWeapon1 or PartyEditSelectType.SubWeapon2)
-            characterInfo = (PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo;
-
         ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        DrawStats(characterInfo, false);
+        using (_ = ImGuiEx.GroupBlock.Begin())
+            DrawStats(characterInfo, false);
+        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is PartyEditSelectType.BattleWear or PartyEditSelectType.MainWeapon or PartyEditSelectType.AbilityWeapon or PartyEditSelectType.SubWeapon0 or PartyEditSelectType.SubWeapon1 or PartyEditSelectType.SubWeapon2)
+        {
+            ImGui.SameLine();
+            ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+            ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
+            ImGui.SameLine();
+            using (_ = ImGuiEx.GroupBlock.Begin())
+                DrawStats((PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo, false);
+        }
         ImGui.End();
     }
 
