@@ -4,6 +4,8 @@ using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.Work;
 using ImGuiNET;
+using Materia.Game;
+using WorkManager = Materia.Game.WorkManager;
 
 namespace Infomania;
 
@@ -32,7 +34,7 @@ public static unsafe class PartyInfo
                 var character = selectedParty->partyCharacterInfos->GetPtr(0);
                 if (character->characterId == 0) return;
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-                DrawStats(character, true);
+                DrawStats(character);
                 ImGui.End();
                 break;
             }
@@ -48,7 +50,7 @@ public static unsafe class PartyInfo
                 if (leftCharacter->characterId != 0)
                 {
                     ImGui.BeginGroup();
-                    DrawStats(leftCharacter, true);
+                    DrawStats(leftCharacter);
                     ImGui.EndGroup();
                 }
 
@@ -63,7 +65,7 @@ public static unsafe class PartyInfo
                     }
 
                     ImGui.BeginGroup();
-                    DrawStats(middleCharacter, true);
+                    DrawStats(middleCharacter);
                     ImGui.EndGroup();
                 }
 
@@ -78,7 +80,7 @@ public static unsafe class PartyInfo
                     }
 
                     ImGui.BeginGroup();
-                    DrawStats(rightCharacter, true);
+                    DrawStats(rightCharacter);
                     ImGui.EndGroup();
                 }
 
@@ -88,6 +90,7 @@ public static unsafe class PartyInfo
         }
     }
 
+    private static PartyCharacterInfo* cachedMemberInfo = null;
     public static void DrawPartyEditInfo(PartyEditTopScreenPresenterBase* partyEdit)
     {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
@@ -95,26 +98,35 @@ public static unsafe class PartyInfo
 
         ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
         using (_ = ImGuiEx.GroupBlock.Begin())
-            DrawStats(characterInfo, false);
-        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is PartyEditSelectType.BattleWear or PartyEditSelectType.MainWeapon or PartyEditSelectType.AbilityWeapon or PartyEditSelectType.SubWeapon0 or PartyEditSelectType.SubWeapon1 or PartyEditSelectType.SubWeapon2)
+            DrawStats(characterInfo);
+        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is not (PartyEditSelectType.None or PartyEditSelectType.Character or PartyEditSelectType.Costume or PartyEditSelectType.DisplayWeapon or PartyEditSelectType.SpecialSkill))
         {
-            ImGui.SameLine();
-            ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
-            ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
-            ImGui.SameLine();
-            using (_ = ImGuiEx.GroupBlock.Begin())
-                DrawStats((PartyCharacterInfo*)partyEdit->rightPanelParameter->centerPanel->partyEditPassiveSkillComparisonPanel->afterPartyCharacterInfo, false);
+            GameInterop.RunOnUpdate(() => cachedMemberInfo = WorkManager.GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo));
+            if (cachedMemberInfo != null)
+            {
+                ImGui.SameLine();
+                ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
+                ImGui.SameLine();
+                using (_ = ImGuiEx.GroupBlock.Begin())
+                    DrawStats(cachedMemberInfo);
+            }
+        }
+        else
+        {
+            cachedMemberInfo = null;
         }
         ImGui.End();
     }
 
-    private static void DrawStats(PartyCharacterInfo* characterInfo, bool displayHeal)
+    private static void DrawStats(PartyCharacterInfo* characterInfo)
     {
         var physAdd = 0;
         var physCoefficient = 0;
         var magAdd = 0;
         var magCoefficient = 0;
         var elementalPotencies = stackalloc (int, int)[8];
+        var displayHeal = false;
 
         for (int i = 0; i < characterInfo->passiveSkillEffectInfos->size; i++)
         {
@@ -135,6 +147,9 @@ public static unsafe class PartyInfo
                     magCoefficient += skillEffectInfo->effectCoefficient;
                     break;
                 case PassiveSkillType.Parameter:
+                    if ((ParameterType)skillEffectInfo->passiveDetailType == ParameterType.HealingPower && skillEffectInfo->effectCoefficient >= 150)
+                        displayHeal = true;
+                    break;
                 case PassiveSkillType.LimitBreakDamage:
                 case PassiveSkillType.SummonDamage:
                     break;
