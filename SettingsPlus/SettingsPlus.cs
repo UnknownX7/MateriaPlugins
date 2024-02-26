@@ -115,7 +115,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
                         break;
                     case HUD.Status.SpecialSkill when battleSystem.IsLimitBreak:
                         if (GameInterop.GetSharedMonoBehaviourInstance<MoviePlayer>() is var moviePlayer && moviePlayer != null && moviePlayer->movieStatus->GetValue() == MoviePlayer.MovieStatus.Play)
-                            GameInterop.TapKeyAction(KeyAction.Skip, 2000, 500);
+                            GameInterop.TapKeyAction(KeyAction.Skip, 1000, 750);
                         break;
                 }
             }

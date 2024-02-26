@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Party;
@@ -49,9 +51,8 @@ public static unsafe class PartyInfo
 
                 if (leftCharacter->characterId != 0)
                 {
-                    ImGui.BeginGroup();
-                    DrawStats(leftCharacter);
-                    ImGui.EndGroup();
+                    using (_ = ImGuiEx.GroupBlock.Begin())
+                        DrawStats(leftCharacter);
                 }
 
                 if (middleCharacter->characterId != 0)
@@ -64,9 +65,8 @@ public static unsafe class PartyInfo
                         ImGui.SameLine();
                     }
 
-                    ImGui.BeginGroup();
-                    DrawStats(middleCharacter);
-                    ImGui.EndGroup();
+                    using (_ = ImGuiEx.GroupBlock.Begin())
+                        DrawStats(middleCharacter);
                 }
 
                 if (rightCharacter->characterId != 0)
@@ -79,9 +79,8 @@ public static unsafe class PartyInfo
                         ImGui.SameLine();
                     }
 
-                    ImGui.BeginGroup();
-                    DrawStats(rightCharacter);
-                    ImGui.EndGroup();
+                    using (_ = ImGuiEx.GroupBlock.Begin())
+                        DrawStats(rightCharacter);
                 }
 
                 ImGui.End();
@@ -126,7 +125,8 @@ public static unsafe class PartyInfo
         var magAdd = 0;
         var magCoefficient = 0;
         var elementalPotencies = stackalloc (int, int)[8];
-        var displayHeal = false;
+        var skillCoefficients = new int[10];
+        skillCoefficients[1] = 1000; // Basic Attack
 
         for (int i = 0; i < characterInfo->passiveSkillEffectInfos->size; i++)
         {
@@ -147,9 +147,6 @@ public static unsafe class PartyInfo
                     magCoefficient += skillEffectInfo->effectCoefficient;
                     break;
                 case PassiveSkillType.Parameter:
-                    if ((ParameterType)skillEffectInfo->passiveDetailType == ParameterType.HealingPower && skillEffectInfo->effectCoefficient >= 150)
-                        displayHeal = true;
-                    break;
                 case PassiveSkillType.LimitBreakDamage:
                 case PassiveSkillType.SummonDamage:
                     break;
@@ -167,37 +164,95 @@ public static unsafe class PartyInfo
         var mDmg = CalcDamage(magicalBaseDamage, 1000, magAdd, magCoefficient, 0);
         //var hDmg = CalcDamage(hybridBaseDamage, 1000, (physAdd + magAdd) / 2, (physCoefficient + magCoefficient) / 2, 0);
 
-
+        SkillAttackType attackType;
         int baseDamage, add, coefficient;
         if (pDmg >= mDmg)
         {
             baseDamage = physicalBaseDamage;
             add = physAdd;
             coefficient = physCoefficient;
-            ImGui.TextUnformatted($"Phys. Dmg.: {pDmg}");
+            attackType = SkillAttackType.Physical;
         }
         else
         {
             baseDamage = magicalBaseDamage;
             add = magAdd;
             coefficient = magCoefficient;
-            ImGui.TextUnformatted($"Mag. Dmg.: {mDmg}");
+            attackType = SkillAttackType.Magical;
         }
 
+        if (characterInfo->mainWeaponInfo0 != null)
+            GetMaxDamageCoefficients(characterInfo->mainWeaponInfo0->weaponSkill->activeSkillInfo->baseSkillInfo, null, attackType, skillCoefficients);
+        if (characterInfo->mainWeaponInfo1 != null)
+            GetMaxDamageCoefficients(characterInfo->mainWeaponInfo1->weaponSkill->activeSkillInfo->baseSkillInfo, null, attackType, skillCoefficients);
+        if (characterInfo->materiaInfo0 != null)
+            GetMaxDamageCoefficients(characterInfo->materiaInfo0->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo0->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot0) ? characterInfo->mainWeaponInfo0->materiaSupportSlot0 : null, attackType, skillCoefficients);
+        if (characterInfo->materiaInfo1 != null)
+            GetMaxDamageCoefficients(characterInfo->materiaInfo1->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo1->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot1) ? characterInfo->mainWeaponInfo0->materiaSupportSlot1 : null, attackType, skillCoefficients);
+        if (characterInfo->materiaInfo2 != null)
+            GetMaxDamageCoefficients(characterInfo->materiaInfo2->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo2->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot2) ? characterInfo->mainWeaponInfo0->materiaSupportSlot2 : null, attackType, skillCoefficients);
+
+        ImGui.TextUnformatted($"{(attackType == SkillAttackType.Physical ? "Phys. Dmg" : "Mag. Dmg")}.: {CalcDamage(baseDamage, skillCoefficients[(int)ElementType.No], add, coefficient, 500)}");
         ImGui.Spacing();
 
         for (int i = 0; i < 8; i++)
         {
+            var skillCoefficient = skillCoefficients[i + 2];
+            if (skillCoefficient == 0) continue;
             var (a, c) = elementalPotencies[i];
-            if (a == 0 && c == 0) continue;
-            ImGui.TextColored(GetElementColor((ElementType)(i + 2)), $"{GetElementName((ElementType)(i + 2))}: {CalcDamage(baseDamage, 1000, a + add, c + coefficient, 0)}");
+            var element = (ElementType)(i + 2);
+            ImGui.TextColored(GetElementColor(element), $"{GetElementName(element)}: {CalcDamage(baseDamage, skillCoefficient, a + add, c + coefficient, 500)}");
         }
 
         ImGui.Spacing();
-        if (displayHeal)
-            ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower}");
+        if (skillCoefficients[0] != 0)
+            ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower * (int)(skillCoefficients[0] * 1.5f * 0.45f) / 1000}");
         ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
         ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
+    }
+
+    private static void GetMaxDamageCoefficients(BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, SkillAttackType attackType, IList<int> coefficients)
+    {
+        var materiaDamageBonus = 0;
+        var materiaHealingBonus = 0;
+        var materiaAoE = false;
+        if (materiaSupportSlot != null)
+        {
+            for (int i = 0; i < materiaSupportSlot->materiaSupportEfefcts->size; i++)
+            {
+                var supportEfefct = materiaSupportSlot->materiaSupportEfefcts->GetPtr(i);
+                if (supportEfefct->materiaSupportEffectTriggerType != SupportEffectTriggerType.Always) continue;
+                switch (supportEfefct->supportEffectType)
+                {
+                    case SupportEffectType.Damage when supportEfefct->isPercent:
+                        materiaDamageBonus = supportEfefct->value;
+                        break;
+                    case SupportEffectType.Healing when supportEfefct->isPercent:
+                        materiaHealingBonus = supportEfefct->value;
+                        break;
+                    case SupportEffectType.AllTarget:
+                        materiaAoE = true;
+                        break;
+                }
+            }
+        }
+
+        for (int i = 0; i < baseSkillInfo->skillEffectDetailInfos->size; i++)
+        {
+            var skillEffect = baseSkillInfo->skillEffectDetailInfos->GetPtr(i);
+            if (!Il2CppType<SkillDamageInfo>.Is(skillEffect->skillEffectDetail, out var skillDamageInfo) || skillDamageInfo->skillDamageType != SkillDamageType.Normal) continue;
+            if (skillDamageInfo->skillAttackType == attackType)
+                coefficients[(int)skillDamageInfo->damageElementType] = Math.Max(coefficients[(int)skillDamageInfo->damageElementType], skillDamageInfo->damageMagnificationPermil.permilValue * (materiaDamageBonus + 1000) / 1000);
+            else if (skillDamageInfo->skillAttackType == SkillAttackType.Heal && (skillEffect->skillEffectInfo->targetType == SkillTargetType.OwnAll || materiaAoE))
+                coefficients[0] = Math.Max(coefficients[0], skillDamageInfo->damageMagnificationPermil.permilValue * (materiaHealingBonus + 1000) / 1000);
+        }
+    }
+
+    private static bool IsMateriaSupportActive(long materiaId, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
+    {
+        for (int i = 0; i < materiaSupportSlot->targetMateriaIds->size; i++)
+            if (materiaId == materiaSupportSlot->targetMateriaIds->Get(i)) return true;
+        return false;
     }
 
     public static string GetElementName(ElementType element) => element switch
