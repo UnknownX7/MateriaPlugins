@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
+using ECGen.Generated.Command.Battle;
+using ECGen.Generated;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.Work;
 using ImGuiNET;
@@ -42,51 +45,69 @@ public static unsafe class PartyInfo
             }
             case 3:
             {
+                var characterInfos = new List<nint>(3);
+
                 var leftCharacter = selectedParty->partyCharacterInfos->GetPtr(1);
+                if (leftCharacter->characterId != 0)
+                    characterInfos.Add((nint)leftCharacter);
+
                 var middleCharacter = selectedParty->partyCharacterInfos->GetPtr(0);
+                if (middleCharacter->characterId != 0)
+                    characterInfos.Add((nint)middleCharacter);
+
                 var rightCharacter = selectedParty->partyCharacterInfos->GetPtr(2);
-                if (leftCharacter->characterId == 0 && middleCharacter->characterId == 0 && rightCharacter->characterId == 0) return;
+                if (rightCharacter->characterId != 0)
+                    characterInfos.Add((nint)rightCharacter);
+
+                if (characterInfos.Count == 0) return;
 
                 ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-
-                if (leftCharacter->characterId != 0)
-                {
-                    using (_ = ImGuiEx.GroupBlock.Begin())
-                        DrawStats(leftCharacter);
-                }
-
-                if (middleCharacter->characterId != 0)
-                {
-                    if (leftCharacter->characterId != 0)
-                    {
-                        ImGui.SameLine();
-                        ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
-                        ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
-                        ImGui.SameLine();
-                    }
-
-                    using (_ = ImGuiEx.GroupBlock.Begin())
-                        DrawStats(middleCharacter);
-                }
-
-                if (rightCharacter->characterId != 0)
-                {
-                    if (leftCharacter->characterId != 0 || middleCharacter->characterId != 0)
-                    {
-                        ImGui.SameLine();
-                        ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
-                        ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
-                        ImGui.SameLine();
-                    }
-
-                    using (_ = ImGuiEx.GroupBlock.Begin())
-                        DrawStats(rightCharacter);
-                }
-
+                DrawStats(characterInfos);
                 ImGui.End();
                 break;
             }
         }
+    }
+
+    public static void DrawPartySelectInfo(MultiAreaBattleMatchingRoomScreenPresenter* matchingRoom)
+    {
+        if (matchingRoom->prevRoomMembers == null || matchingRoom->battleUserUiIndexDictionary == null) return;
+
+        const int maxUsers = 3;
+        var users = stackalloc long[maxUsers];
+        for (int i = 0; i < matchingRoom->battleUserUiIndexDictionary->count; i++)
+        {
+            var entry = matchingRoom->battleUserUiIndexDictionary->GetEntry(i);
+            var index = (int)entry->value;
+            if (index < maxUsers)
+                users[index] = (long)entry->key;
+        }
+
+        var characterInfos = new List<nint>();
+        var roomMembers = (Unmanaged_Array<RoomMember>*)matchingRoom->prevRoomMembers;
+        for (int i = 0; i < maxUsers; i++)
+        {
+            var id = users[i];
+            if (id == 0) continue;
+            for (int j = 0; j < roomMembers->size; j++)
+            {
+                var member = roomMembers->GetPtr(j);
+                if (member->battleUserId != id) continue;
+                if (member->userName == null) break;
+
+                if (i == 1 && characterInfos.Count > 0) // Left-most character
+                    characterInfos.Insert(0, (nint)member->partyCharacterInfo);
+                else
+                    characterInfos.Add((nint)member->partyCharacterInfo);
+                break;
+            }
+        }
+
+        if (characterInfos.Count == 0) return;
+
+        ImGui.Begin("MultiPartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        DrawStats(characterInfos);
+        ImGui.End();
     }
 
     private static PartyCharacterInfo* cachedMemberInfo = null;
@@ -209,6 +230,36 @@ public static unsafe class PartyInfo
             ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower * (int)(skillCoefficients[0] * 1.5f * 0.45f) / 1000}");
         ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
         ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
+    }
+
+    private static void DrawStats(PartyCharacterInfo*[] characterInfos)
+    {
+        var first = true;
+        foreach (var characterInfo in characterInfos)
+        {
+            if (characterInfo->characterId == 0) continue;
+
+            if (!first)
+            {
+                ImGui.SameLine();
+                ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
+                ImGui.SameLine();
+            }
+
+            using (_ = ImGuiEx.GroupBlock.Begin())
+                DrawStats(characterInfo);
+            first = false;
+        }
+    }
+
+    private static void DrawStats(IReadOnlyList<nint> characterInfos)
+    {
+        if (characterInfos.Count == 0) return;
+        var array = new PartyCharacterInfo*[characterInfos.Count];
+        for (int i = 0; i < characterInfos.Count; i++)
+            array[i] = (PartyCharacterInfo*)characterInfos[i];
+        DrawStats(array);
     }
 
     private static void GetMaxDamageCoefficients(BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, SkillAttackType attackType, IList<int> coefficients)

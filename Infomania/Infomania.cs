@@ -5,6 +5,7 @@ using System.Numerics;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Gift;
 using ECGen.Generated.Command.OutGame.Party;
+using ECGen.Generated.Command.OutGame.MultiBattle;
 
 namespace Infomania;
 
@@ -54,6 +55,9 @@ public unsafe class Infomania : IMateriaPlugin
             case "Command.OutGame.Party.MultiPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.EnablePartySelectInfo:
                 PartyInfo.DrawPartySelectInfo((PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>*)currentScreen.NativePtr);
+                break;
+            case "Command.OutGame.MultiBattle.MultiAreaBattleMatchingRoomScreenPresenter" when Config.EnablePartySelectInfo:
+                PartyInfo.DrawPartySelectInfo((MultiAreaBattleMatchingRoomScreenPresenter*)currentScreen.NativePtr);
                 break;
             case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.EnablePartyEditInfo:
             case "Command.OutGame.Party.PartyEditTopScreenMultiPresenter" when Config.EnablePartyEditInfo:
