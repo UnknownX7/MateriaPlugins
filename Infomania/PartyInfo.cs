@@ -227,7 +227,7 @@ public static unsafe class PartyInfo
 
         ImGui.Spacing();
         if (skillCoefficients[0] != 0)
-            ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower * (int)(skillCoefficients[0] * 1.5f * 0.45f) / 1000}");
+            ImGui.TextUnformatted($"Heal: {characterInfo->totalStatus->healingPower * (int)(skillCoefficients[0] * 1.5f * 0.45f) / 1000 + 10}");
         ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
         ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
     }

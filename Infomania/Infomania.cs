@@ -4,6 +4,7 @@ using Materia.Plugin;
 using System.Numerics;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Gift;
+using ECGen.Generated.Command.OutGame.Home;
 using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.MultiBattle;
 
@@ -49,6 +50,9 @@ public unsafe class Infomania : IMateriaPlugin
         var currentScreen = ScreenManager.Instance?.CurrentScreen;
         switch (currentScreen?.Type.FullName)
         {
+            case "Command.OutGame.Home.HomeTopScreenPresenter" when Config.EnableHomeInfo:
+                HomeInfo.Draw((HomeTopScreenPresenter*)currentScreen.NativePtr);
+                break;
             case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
             case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
@@ -72,7 +76,14 @@ public unsafe class Infomania : IMateriaPlugin
         ImGui.SetNextWindowSizeConstraints(new Vector2(250, 200) * ImGuiEx.Scale, new Vector2(10000));
         ImGui.Begin("Infomania", ref draw);
 
-        var b = Config.EnablePartySelectInfo;
+        var b = Config.EnableHomeInfo;
+        if (ImGui.Checkbox("Enable Home Info", ref b))
+        {
+            Config.EnableHomeInfo = b;
+            Config.Save();
+        }
+
+        b = Config.EnablePartySelectInfo;
         if (ImGui.Checkbox("Enable Party Select Stats", ref b))
         {
             Config.EnablePartySelectInfo = b;
