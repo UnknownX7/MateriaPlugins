@@ -39,8 +39,12 @@ public unsafe class GilShopper : IMicroMacro
         else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupModal>() is { } shopResetLineupModal)
         {
             var shopStore = (ShopWork.ShopStore*)shopResetLineupModal.NativePtr->currentShopInfo;
-            if (shopStore->masterShop->id == 101002)
+            if (shopResetLineupModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id == 101002)
                 GameInterop.TapButton(shopResetLineupModal.NativePtr->consumptionItemField->okButton);
+        }
+        else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupSimpleModalPresenter>() is { } simpleResetLineupModal)
+        {
+            GameInterop.TapButton(simpleResetLineupModal.NativePtr->simpleModalView->positiveButton);
         }
         else
         {
