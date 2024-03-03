@@ -25,26 +25,26 @@ public unsafe class GilShopper : IMicroMacro
                 {
                     var column = productCell->shopSingleProductCellColumns->GetPtr(0);
                     if (column->shopProductParameter != null && (column->button->lockedObject == null || !column->button->lockedObject->isLocked))
-                        GameInterop.TapButton(column->button);
+                        GameInterop.TapButton(column->button, false);
                     else
-                        GameInterop.TapButton(shopContent->lineupResetButton->lineupResetButton);
+                        GameInterop.TapButton(shopContent->lineupResetButton->lineupResetButton, false);
                 }
             }
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopCheckPurchaseItemsModal>() is { } shopCheckPurchaseItemsModal)
         {
             if (shopCheckPurchaseItemsModal.NativePtr->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopCheckPurchaseItemsModal.NativePtr->currentShopProductParameter->ShopId == 101002)
-                GameInterop.TapButton(shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->okButton);
+                GameInterop.TapButton(shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->okButton, false);
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupModal>() is { } shopResetLineupModal)
         {
             var shopStore = (ShopWork.ShopStore*)shopResetLineupModal.NativePtr->currentShopInfo;
             if (shopResetLineupModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id == 101002)
-                GameInterop.TapButton(shopResetLineupModal.NativePtr->consumptionItemField->okButton);
+                GameInterop.TapButton(shopResetLineupModal.NativePtr->consumptionItemField->okButton, false);
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupSimpleModalPresenter>() is { } simpleResetLineupModal)
         {
-            GameInterop.TapButton(simpleResetLineupModal.NativePtr->simpleModalView->positiveButton);
+            GameInterop.TapButton(simpleResetLineupModal.NativePtr->simpleModalView->positiveButton, false);
         }
         else
         {

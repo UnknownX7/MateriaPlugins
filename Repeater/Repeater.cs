@@ -34,7 +34,7 @@ public unsafe class Repeater : IMateriaPlugin
         }
 
         if (ModalManager.Instance?.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
-            GameInterop.TapKeyAction(KeyAction.Confirm, 50);
+            GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
     }
 
     public void Draw()

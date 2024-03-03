@@ -25,7 +25,7 @@ public unsafe class SynthAssist : IMicroMacro
         {
             if (ModalManager.Instance?.GetCurrentModal<SynthesisBulkReceiveModalPresenter>() is { } synthesisBulkReceiveModalPresenter)
             {
-                GameInterop.TapButton(synthesisBulkReceiveModalPresenter.NativePtr->view->acceptButton);
+                GameInterop.TapButton(synthesisBulkReceiveModalPresenter.NativePtr->view->acceptButton, false);
                 return;
             }
 
@@ -37,10 +37,10 @@ public unsafe class SynthAssist : IMicroMacro
                 switch (synth->view->currentViewType)
                 {
                     case SynthesisViewType.Empty:
-                        GameInterop.TapButton(synth->view->decideButton);
+                        GameInterop.TapButton(synth->view->decideButton, false);
                         return;
                     case SynthesisViewType.Acceptance:
-                        GameInterop.TapButton(native->view->bulkReceiveButton);
+                        GameInterop.TapButton(native->view->bulkReceiveButton, false);
                         return;
                 }
             }
@@ -50,12 +50,12 @@ public unsafe class SynthAssist : IMicroMacro
         {
             if (ModalManager.Instance?.GetCurrentModal<GridItemConfirmModal>() is { } gridItemConfirmModal)
             {
-                GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton);
+                GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton, false);
                 return;
             }
             else
             {
-                GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->view->craftButton);
+                GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->view->craftButton, false);
                 return;
             }
         }
