@@ -1,8 +1,11 @@
-﻿using System;
+using System;
 using System.Numerics;
+using ECGen.Generated;
+using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
 using ECGen.Generated.Command.OutGame.Home;
 using ECGen.Generated.Command.Work;
+using ECGen.Generated.System.Collections.Generic;
 using ImGuiNET;
 using Materia.Attributes;
 using Materia.Game;
@@ -13,10 +16,14 @@ namespace Infomania;
 [Injection]
 public static unsafe class HomeInfo
 {
+    private static readonly Vector4 green = new(0.4f, 1, 0.4f, 1);
+    private static readonly Vector4 red = new(1, 0.4f, 0.4f, 1);
+
     public static void Draw(HomeTopScreenPresenter* homeScreen)
     {
         if (homeScreen->currentContentState != HomeContentState.Top) return;
 
+        var gilShop = WorkManager.GetShopStore(101002);
         var dailyQuests = DataStore.NativePtr->userData->dB->userDailyQuestTable->dictionary;
         var total = 0L;
         var remaining = 0L;
@@ -29,45 +36,95 @@ public static unsafe class HomeInfo
         var premiumQuestGroupCategory = WorkManager.GetSoloAreaGroupCategoryStore(99995500001);
 
         ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        DrawResetTimer("Dailies", 4, 12); // Daily Mission Reset
-        DrawResetTimer("Daily Shop", 3, 12); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
-        //DrawResetTimer("Guild Energy", 18, 12);
-        DrawResetTimer("Weeklies", 5, 48); // Weekly Mission Reset
-        DrawResetTimer("Weekly Shop", 11, 48);
-        DrawResetTimer("Monthly Shop", 12, 72);
+        DrawResetTimer("Dailies", 4, 12, IsMissionBonusObtained(200001)); // Daily Mission Reset
+        DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
+        //DrawResetTimer("Guild Energy", 18, 0);
+        DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300001)); // Weekly Mission Reset
+        DrawResetTimer("Weekly Shop", 11, 0);
+        DrawResetTimer("Monthly Shop", 12, 0);
+
         ImGui.Spacing();
         ImGui.Spacing();
-        ImGui.TextUnformatted($"Daily Quests:    {total - remaining}/{total}");
-        ImGui.TextUnformatted($"Premium Quests:  {premiumQuestGroupCategory->resetWinCount}/{premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount}");
+
+        ImGui.TextColored(remaining == 0 ? green : red, $"Daily Quests:      {total - remaining}/{total}");
+        ImGui.TextColored(premiumQuestGroupCategory->resetWinCount == premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount ? green : red, $"Premium Quests:    {premiumQuestGroupCategory->resetWinCount}/{premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount}");
+
+        ImGui.Spacing();
+        ImGui.Spacing();
+
+        var craftTimer = GetTimeUntilCraftFinished();
+        if (craftTimer >= TimeSpan.Zero)
+            DrawTimer("Crafting", craftTimer);
+        ImGui.TextUnformatted($"Chocobo: {GetHighestChocoboShopRank()}");
         ImGui.End();
     }
 
-    private static void DrawResetTimer(string name, long resetId, int hourColorThreshold)
+    private static void DrawTimer(string name, TimeSpan remainingTime, bool drawSeconds = true, int padding = 0, int hourColorThreshold = 0, bool finished = false)
     {
-        const int padding = 19;
-        var remainingTime = GetRemainingTime(resetId);
-        var timeStr = remainingTime > TimeSpan.Zero ? $"{(long)remainingTime.TotalHours:D2}:{remainingTime:mm}" : "00:00";
-        var colorThresholdTime = TimeSpan.FromHours(hourColorThreshold);
-        var thresholdRatio = (float)(remainingTime / colorThresholdTime);
-        var color = thresholdRatio < 1 ? new Vector4(1, thresholdRatio, thresholdRatio, 1) : Vector4.One;
-        ImGui.TextColored(color, $"{name}:{new string(' ', padding - name.Length - timeStr.Length)}{timeStr}");
+        var timeStr = remainingTime > TimeSpan.Zero ? drawSeconds ? $"{(long)remainingTime.TotalHours:D2}:{remainingTime:mm\\:ss}" : $"{(long)remainingTime.TotalHours:D2}:{remainingTime:mm}" : drawSeconds ? "00:00:00" : "00:00";
+        var color = green;
+        if (!finished)
+        {
+            var colorThresholdTime = TimeSpan.FromHours(hourColorThreshold);
+            if (colorThresholdTime > TimeSpan.Zero)
+            {
+                var thresholdRatio = (float)(remainingTime / colorThresholdTime);
+                color = thresholdRatio < 1 ? new Vector4(1, thresholdRatio, thresholdRatio, 1) : Vector4.One;
+            }
+            else
+            {
+                color = Vector4.One;
+            }
+        }
+        ImGui.TextColored(color, $"{name}:{new string(' ', Math.Max(padding - name.Length - timeStr.Length, 1))}{timeStr}");
     }
 
-    [GameSymbol("Command.Work.ResetWork$$GetOrCreateResetStore")]
-    private static delegate* unmanaged<ResetWork*, long, nint, ResetWork.ResetStore*> getOrCreateResetStore;
-    private static ResetWork.ResetStore* GetResetStore(long id) => getOrCreateResetStore(WorkManager.NativePtr->reset, id, 0);
-
-    [GameSymbol("Command.Work.ResetWork$$GetRemainingMillSecond")]
-    private static delegate* unmanaged<ResetWork*, long, nint, long> getRemainingMillSecond;
-    private static TimeSpan GetRemainingTime(long resetId)
+    private static void DrawResetTimer(string name, long resetId, int hourColorThreshold, bool finished = false)
     {
-        if (resetId != 12) // TODO: Fix
-            return TimeSpan.FromMilliseconds(getRemainingMillSecond(WorkManager.NativePtr->reset, resetId, 0));
+        const int padding = 21;
+        var remainingTime = WorkManager.GetTimeUntilReset(resetId);
+        DrawTimer(name, remainingTime, false, padding, hourColorThreshold, finished);
+    }
 
-        const int offsetHours = 9;
-        var utcNow = DateTimeOffset.UtcNow;
-        var offsetUtcNow = utcNow.AddHours(offsetHours);
-        var nextMonth = new DateTimeOffset(offsetUtcNow.Year, offsetUtcNow.Month + 1, 1, 0, 0, 0, TimeSpan.Zero).AddHours(-offsetHours);
-        return nextMonth - utcNow;
+    private static bool IsMissionBonusObtained(long groupId)
+    {
+        var baseId = groupId * 100;
+        while (WorkManager.GetMissionBonusStore(++baseId) is var missionBonusStore && missionBonusStore != null)
+            if (!missionBonusStore->isReceived) return false;
+        return true;
+    }
+
+    private static TimeSpan GetTimeUntilCraftFinished()
+    {
+        var firstFinished = long.MaxValue;
+        var currentMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        for (int i = 0; i < DataStore.NativePtr->userData->dB->userCraftTable->dictionary->count; i++)
+        {
+            var entry = DataStore.NativePtr->userData->dB->userCraftTable->dictionary->GetEntry(i);
+            var completeTime = entry->value->calcCompleteDatetime;
+            if (!entry->value->isEmpty && completeTime > currentMs && completeTime < firstFinished)
+                firstFinished = completeTime;
+        }
+        return firstFinished < long.MaxValue ? TimeSpan.FromMilliseconds(firstFinished - currentMs) : TimeSpan.MinValue;
+    }
+
+    private static string GetHighestChocoboShopRank()
+    {
+        var chocoboShop = WorkManager.GetShopStore(207001);
+        var chocobos = (Unmanaged_Array<ShopItemLineupInfo>*)chocoboShop->shopItemLineupInfos;
+        var highestRank = ChocoboRankType.None;
+        var areaType = ChocoboAreaType.None;
+        for (int i = 0; i < chocobos->size; i++)
+        {
+            var rewardArray = (Unmanaged_List<RewardWork.RewardSetRewardRelStore>*)WorkManager.GetShopItemStore(chocobos->GetPtr(i)->shopItemId)->rewardSetRewardRelInfos;
+            if (rewardArray->size == 0) continue;
+            var reward = WorkManager.GetRewardStore(rewardArray->GetPtr(0)->masterRewardSetRewardRel->rewardId);
+            if (reward == null || (RewardType)reward->masterReward->rewardType != RewardType.Chocobo) continue;
+            var chocobo = WorkManager.GetChocoboStore(reward->masterReward->targetId);
+            if (chocobo == null || chocobo->currentChocoboRankType < highestRank) continue;
+            highestRank = chocobo->currentChocoboRankType;
+            areaType = chocobo->chocoboAreaType;
+        }
+        return $"{highestRank.ToString().Replace("Plus", "+")} ({areaType})";
     }
 }
