@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated;
@@ -75,12 +76,11 @@ public static unsafe class PartyInfo
 
         const int maxUsers = 3;
         var users = stackalloc long[maxUsers];
-        for (int i = 0; i < matchingRoom->battleUserUiIndexDictionary->count; i++)
+        foreach (var p in matchingRoom->battleUserUiIndexDictionary->Enumerable)
         {
-            var entry = matchingRoom->battleUserUiIndexDictionary->GetEntry(i);
-            var index = (int)entry->value;
+            var index = (int)p.ptr->value;
             if (index < maxUsers)
-                users[index] = (long)entry->key;
+                users[index] = (long)p.ptr->key;
         }
 
         var characterInfos = new List<nint>();
@@ -89,18 +89,12 @@ public static unsafe class PartyInfo
         {
             var id = users[i];
             if (id == 0) continue;
-            for (int j = 0; j < roomMembers->size; j++)
-            {
-                var member = roomMembers->GetPtr(j);
-                if (member->battleUserId != id) continue;
-                if (member->userName == null) break;
-
-                if (i == 1 && characterInfos.Count > 0) // Left-most character
-                    characterInfos.Insert(0, (nint)member->partyCharacterInfo);
-                else
-                    characterInfos.Add((nint)member->partyCharacterInfo);
-                break;
-            }
+            var member = roomMembers->PtrEnumerable.FirstOrDefault(ptr => ptr.ptr->battleUserId == id).ptr;
+            if (member == null || member->userName == null) continue;
+            if (i == 1 && characterInfos.Count > 0) // Left-most character
+                characterInfos.Insert(0, (nint)member->partyCharacterInfo);
+            else
+                characterInfos.Add((nint)member->partyCharacterInfo);
         }
 
         if (characterInfos.Count == 0) return;
@@ -149,30 +143,26 @@ public static unsafe class PartyInfo
         var skillCoefficients = new int[10];
         skillCoefficients[1] = 1000; // Basic Attack
 
-        for (int i = 0; i < characterInfo->passiveSkillEffectInfos->size; i++)
+        foreach (var p in characterInfo->passiveSkillEffectInfos->PtrEnumerable)
         {
-            var skillEffectInfo = characterInfo->passiveSkillEffectInfos->GetPtr(i);
-            switch (skillEffectInfo->passiveSkillType)
+            switch (p.ptr->passiveSkillType)
             {
                 case PassiveSkillType.ElementDamage:
-                    var element = skillEffectInfo->passiveDetailType - 2;
-                    elementalPotencies[element].Item1 += skillEffectInfo->effectValue;
-                    elementalPotencies[element].Item2 += skillEffectInfo->effectCoefficient;
+                    var element = p.ptr->passiveDetailType - 2;
+                    elementalPotencies[element].Item1 += p.ptr->effectValue;
+                    elementalPotencies[element].Item2 += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.PhysicalDamage:
-                    physAdd += skillEffectInfo->effectValue;
-                    physCoefficient += skillEffectInfo->effectCoefficient;
+                    physAdd += p.ptr->effectValue;
+                    physCoefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.MagicalDamage:
-                    magAdd += skillEffectInfo->effectValue;
-                    magCoefficient += skillEffectInfo->effectCoefficient;
+                    magAdd += p.ptr->effectValue;
+                    magCoefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.Parameter:
                 case PassiveSkillType.LimitBreakDamage:
                 case PassiveSkillType.SummonDamage:
-                    break;
-                default:
-                    //ImGui.TextUnformatted($"??? {skillEffectInfo->passiveDetailType} +{skillEffectInfo->effectValue}/{skillEffectInfo->effectCoefficient / 10f}%");
                     break;
             }
         }
@@ -269,17 +259,15 @@ public static unsafe class PartyInfo
         var materiaAoE = false;
         if (materiaSupportSlot != null)
         {
-            for (int i = 0; i < materiaSupportSlot->materiaSupportEfefcts->size; i++)
+            foreach (var p in materiaSupportSlot->materiaSupportEfefcts->PtrEnumerable.Where(p => p.ptr->materiaSupportEffectTriggerType == SupportEffectTriggerType.Always))
             {
-                var supportEfefct = materiaSupportSlot->materiaSupportEfefcts->GetPtr(i);
-                if (supportEfefct->materiaSupportEffectTriggerType != SupportEffectTriggerType.Always) continue;
-                switch (supportEfefct->supportEffectType)
+                switch (p.ptr->supportEffectType)
                 {
-                    case SupportEffectType.Damage when supportEfefct->isPercent:
-                        materiaDamageBonus = supportEfefct->value;
+                    case SupportEffectType.Damage when p.ptr->isPercent:
+                        materiaDamageBonus = p.ptr->value;
                         break;
-                    case SupportEffectType.Healing when supportEfefct->isPercent:
-                        materiaHealingBonus = supportEfefct->value;
+                    case SupportEffectType.Healing when p.ptr->isPercent:
+                        materiaHealingBonus = p.ptr->value;
                         break;
                     case SupportEffectType.AllTarget:
                         materiaAoE = true;
@@ -288,23 +276,17 @@ public static unsafe class PartyInfo
             }
         }
 
-        for (int i = 0; i < baseSkillInfo->skillEffectDetailInfos->size; i++)
+        foreach (var p in baseSkillInfo->skillEffectDetailInfos->PtrEnumerable)
         {
-            var skillEffect = baseSkillInfo->skillEffectDetailInfos->GetPtr(i);
-            if (!Il2CppType<SkillDamageInfo>.Is(skillEffect->skillEffectDetail, out var skillDamageInfo) || skillDamageInfo->skillDamageType != SkillDamageType.Normal) continue;
+            if (!Il2CppType<SkillDamageInfo>.Is(p.ptr->skillEffectDetail, out var skillDamageInfo) || skillDamageInfo->skillDamageType != SkillDamageType.Normal) continue;
             if (skillDamageInfo->skillAttackType == attackType)
                 coefficients[(int)skillDamageInfo->damageElementType] = Math.Max(coefficients[(int)skillDamageInfo->damageElementType], skillDamageInfo->damageMagnificationPermil.permilValue * (materiaDamageBonus + 1000) / 1000);
-            else if (skillDamageInfo->skillAttackType == SkillAttackType.Heal && (skillEffect->skillEffectInfo->targetType == SkillTargetType.OwnAll || materiaAoE))
+            else if (skillDamageInfo->skillAttackType == SkillAttackType.Heal && (p.ptr->skillEffectInfo->targetType == SkillTargetType.OwnAll || materiaAoE))
                 coefficients[0] = Math.Max(coefficients[0], skillDamageInfo->damageMagnificationPermil.permilValue * (materiaHealingBonus + 1000) / 1000);
         }
     }
 
-    private static bool IsMateriaSupportActive(long materiaId, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
-    {
-        for (int i = 0; i < materiaSupportSlot->targetMateriaIds->size; i++)
-            if (materiaId == materiaSupportSlot->targetMateriaIds->Get(i)) return true;
-        return false;
-    }
+    private static bool IsMateriaSupportActive(long materiaId, WeaponMateriaSupportSlotInfo* materiaSupportSlot) => materiaSupportSlot->targetMateriaIds->Enumerable.Any(id => id == materiaId);
 
     public static string GetElementName(ElementType element) => element switch
     {

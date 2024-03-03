@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame.Gift;
 using ImGuiNET;
@@ -9,23 +10,12 @@ public static unsafe class GiftInfo
 {
     public static void Draw(GiftModalPresenter* giftModal)
     {
-        var dictionary = giftModal->itemModel->giftListCache;
-        var staminaTonicCount = 0L;
-        var firstExpiry = 7258118400000;
-        for (int i = 0; i < dictionary->count; i++)
-        {
-            var entry = dictionary->GetEntry(i);
-            if (entry == null) continue;
+        var entry = giftModal->itemModel->giftListCache->Enumerable.FirstOrDefault().ptr;
+        if (entry == null) return;
 
-            for (int j = 0; j < entry->value->size; j++)
-            {
-                var giftRewardInfo = entry->value->GetPtr(j);
-                if (giftRewardInfo->rewardType != RewardType.Item || giftRewardInfo->targetId != 17002) continue;
-                staminaTonicCount += giftRewardInfo->count;
-                firstExpiry = Math.Min(giftRewardInfo->giftInfo->expireDatetime, firstExpiry);
-            }
-            break;
-        }
+        var staminaGifts = entry->value->PtrEnumerable.Where(p => p.ptr->rewardType == RewardType.Item && p.ptr->targetId == 17002).ToArray();
+        var staminaTonicCount = staminaGifts.Sum(p => p.ptr->count);
+        var firstExpiry = staminaTonicCount > 0 ? staminaGifts.Min(p => p.ptr->giftInfo->expireDatetime) : 0;
 
         if (staminaTonicCount == 0) return;
 

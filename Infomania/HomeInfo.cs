@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Numerics;
 using ECGen.Generated;
 using ECGen.Generated.Command.Enums;
@@ -7,13 +8,11 @@ using ECGen.Generated.Command.OutGame.Home;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.System.Collections.Generic;
 using ImGuiNET;
-using Materia.Attributes;
 using Materia.Game;
 using WorkManager = Materia.Game.WorkManager;
 
 namespace Infomania;
 
-[Injection]
 public static unsafe class HomeInfo
 {
     private static readonly Vector4 green = new(0.4f, 1, 0.4f, 1);
@@ -24,16 +23,16 @@ public static unsafe class HomeInfo
         if (homeScreen->currentContentState != HomeContentState.Top) return;
 
         var gilShop = WorkManager.GetShopStore(101002);
-        var dailyQuests = DataStore.NativePtr->userData->dB->userDailyQuestTable->dictionary;
         var total = 0L;
         var remaining = 0L;
-        for (int i = 0; i < dailyQuests->count; i++)
+        foreach (var p in DataStore.NativePtr->userData->dB->userDailyQuestTable->dictionary->Enumerable)
         {
-            var quest = dailyQuests->GetEntry(i)->value;
-            total += quest->totalRemainWinCount;
-            remaining += quest->remainWinCount;
+            total += p.ptr->value->totalRemainWinCount;
+            remaining += p.ptr->value->remainWinCount;
         }
         var premiumQuestGroupCategory = WorkManager.GetSoloAreaGroupCategoryStore(99995500001);
+        var f = (delegate* unmanaged<AreaBattleWork.SoloAreaGroupCategoryStore*, nint, long>)premiumQuestGroupCategory->@class->vtable.get_RemainingChallengeCount.methodPtr;
+        var remainingPremiumQuests = f(premiumQuestGroupCategory, 0);
 
         ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
         DrawResetTimer("Dailies", 4, 12, IsMissionBonusObtained(200001)); // Daily Mission Reset
@@ -47,7 +46,7 @@ public static unsafe class HomeInfo
         ImGui.Spacing();
 
         ImGui.TextColored(remaining == 0 ? green : red, $"Daily Quests:      {total - remaining}/{total}");
-        ImGui.TextColored(premiumQuestGroupCategory->resetWinCount == premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount ? green : red, $"Premium Quests:    {premiumQuestGroupCategory->resetWinCount}/{premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount}");
+        ImGui.TextColored(remainingPremiumQuests == 0 ? green : red, $"Premium Quests:    {premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount - remainingPremiumQuests}/{premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount}");
 
         ImGui.Spacing();
         ImGui.Spacing();
@@ -96,15 +95,9 @@ public static unsafe class HomeInfo
 
     private static TimeSpan GetTimeUntilCraftFinished()
     {
-        var firstFinished = long.MaxValue;
         var currentMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        for (int i = 0; i < DataStore.NativePtr->userData->dB->userCraftTable->dictionary->count; i++)
-        {
-            var entry = DataStore.NativePtr->userData->dB->userCraftTable->dictionary->GetEntry(i);
-            var completeTime = entry->value->calcCompleteDatetime;
-            if (!entry->value->isEmpty && completeTime > currentMs && completeTime < firstFinished)
-                firstFinished = completeTime;
-        }
+        var crafts = DataStore.NativePtr->userData->dB->userCraftTable->dictionary->Enumerable.Where(p => !p.ptr->value->isEmpty && p.ptr->value->calcCompleteDatetime > currentMs).ToArray();
+        var firstFinished = crafts.Length > 0 ? crafts.Min(p => p.ptr->value->calcCompleteDatetime) : long.MaxValue;
         return firstFinished < long.MaxValue ? TimeSpan.FromMilliseconds(firstFinished - currentMs) : TimeSpan.MinValue;
     }
 
@@ -114,9 +107,9 @@ public static unsafe class HomeInfo
         var chocobos = (Unmanaged_Array<ShopItemLineupInfo>*)chocoboShop->shopItemLineupInfos;
         var highestRank = ChocoboRankType.None;
         var areaType = ChocoboAreaType.None;
-        for (int i = 0; i < chocobos->size; i++)
+        foreach (var ptr in chocobos->PtrEnumerable)
         {
-            var rewardArray = (Unmanaged_List<RewardWork.RewardSetRewardRelStore>*)WorkManager.GetShopItemStore(chocobos->GetPtr(i)->shopItemId)->rewardSetRewardRelInfos;
+            var rewardArray = (Unmanaged_List<RewardWork.RewardSetRewardRelStore>*)WorkManager.GetShopItemStore(ptr.ptr->shopItemId)->rewardSetRewardRelInfos;
             if (rewardArray->size == 0) continue;
             var reward = WorkManager.GetRewardStore(rewardArray->GetPtr(0)->masterRewardSetRewardRel->rewardId);
             if (reward == null || (RewardType)reward->masterReward->rewardType != RewardType.Chocobo) continue;

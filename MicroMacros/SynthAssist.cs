@@ -30,14 +30,12 @@ public unsafe class SynthAssist : IMicroMacro
             }
 
             var native = synthesisTopScreenPresenter.NativePtr;
-            var synthesisArray = native->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray;
-            for (int i = 0; i < synthesisArray->size; i++)
+            foreach (var p in native->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray->PtrEnumerable)
             {
-                var synth = synthesisArray->GetPtr(i);
-                switch (synth->view->currentViewType)
+                switch (p.ptr->view->currentViewType)
                 {
                     case SynthesisViewType.Empty:
-                        GameInterop.TapButton(synth->view->decideButton, false);
+                        GameInterop.TapButton(p.ptr->view->decideButton, false);
                         return;
                     case SynthesisViewType.Acceptance:
                         GameInterop.TapButton(native->view->bulkReceiveButton, false);

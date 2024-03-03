@@ -15,9 +15,8 @@ public unsafe class GilShopper : IMicroMacro
     {
         if (ModalManager.Instance?.GetCurrentModal<ShopModalPresenter>() is { } shopModal)
         {
-            for (int i = 0; i < shopModal.NativePtr->contentHandles->size; i++)
+            foreach (var t in shopModal.NativePtr->contentHandles->Enumerable)
             {
-                var t = shopModal.NativePtr->contentHandles->Get(i);
                 if (Il2CppType<ShopWork.ShopStore>.Is(t.Item2, out var shopStore) && shopStore->masterShop->id == 101002
                     && Il2CppType<ContentChanger.ContentHandle>.Is(t.Item1, out var contentHandle)
                     && Il2CppType<ShopSingleContent>.Is(contentHandle->content, out var shopContent) && shopContent->isOpen && shopContent->shopProductList->scroller->activeCells->size != 0

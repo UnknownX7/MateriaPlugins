@@ -5,6 +5,7 @@ using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
 using System;
+using System.Linq;
 using System.Numerics;
 using ECGen.Generated.Command;
 using ECGen.Generated.Command.Battle;
@@ -76,17 +77,13 @@ public unsafe class SettingsPlus : IMateriaPlugin
         {
             case "Command.OutGame.Synthesis.SynthesisTopScreenPresenter" when Config.EnableRememberLastSelectedMateriaRecipe && lastMateriaRecipeId == 0:
                 var synthesisTop = (SynthesisTopScreenPresenter*)currentScreen.NativePtr;
-                var synthesisArray = synthesisTop->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray;
-                for (int i = 0; i < synthesisArray->size; i++)
+                foreach (var p in synthesisTop->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray->PtrEnumerable.Where(p => p.ptr->cellModel->craftType->GetValue() == CraftType.Materia))
                 {
-                    var synth = synthesisArray->GetPtr(i);
-                    if (synth->cellModel->craftType->GetValue() != CraftType.Materia) continue;
-
-                    switch (synth->view->currentViewType)
+                    switch (p.ptr->view->currentViewType)
                     {
                         case SynthesisViewType.Synthesis:
                         case SynthesisViewType.Acceptance:
-                            var synthesisStore = (SynthesisWork.SynthesisStore*)synth->cellModel->synthesisInfo->value;
+                            var synthesisStore = (SynthesisWork.SynthesisStore*)p.ptr->cellModel->synthesisInfo->value;
                             var materiaRecipeInfo = (MateriaWork.MateriaRecipeStore*)synthesisStore->materiaRecipeInfo;
                             lastMateriaRecipeId = materiaRecipeInfo->masterMateriaRecipe->id;
                             break;
