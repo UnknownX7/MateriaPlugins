@@ -104,7 +104,8 @@ public static unsafe class PartyInfo
         ImGui.End();
     }
 
-    private static PartyCharacterInfo* cachedMemberInfo = null;
+    private static PartyCharacterInfo* cachedAfterSelectPartyCharacterInfo;
+    private static Il2CppObject<PartyCharacterInfo>? cachedMemberInfo;
     public static void DrawPartyEditInfo(PartyEditTopScreenPresenterBase* partyEdit)
     {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
@@ -115,20 +116,38 @@ public static unsafe class PartyInfo
             DrawStats(characterInfo);
         if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is not (PartyEditSelectType.None or PartyEditSelectType.Character or PartyEditSelectType.Costume or PartyEditSelectType.DisplayWeapon or PartyEditSelectType.SpecialSkill))
         {
-            GameInterop.RunOnUpdate(() => cachedMemberInfo = WorkManager.GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo));
+            if (cachedAfterSelectPartyCharacterInfo != partyEdit->afterSelectPartyCharacterInfo)
+            {
+                GameInterop.RunOnUpdate(() =>
+                {
+                    if (cachedMemberInfo != null)
+                    {
+                        lock (cachedMemberInfo)
+                        {
+                            cachedMemberInfo.Dispose();
+                            cachedMemberInfo = new Il2CppObject<PartyCharacterInfo>(WorkManager.GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo));
+                        }
+                    }
+                    else
+                    {
+                        cachedMemberInfo = new Il2CppObject<PartyCharacterInfo>(WorkManager.GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo));
+                    }
+                });
+                cachedAfterSelectPartyCharacterInfo = partyEdit->afterSelectPartyCharacterInfo;
+            }
+
             if (cachedMemberInfo != null)
             {
-                ImGui.SameLine();
-                ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
-                ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
-                ImGui.SameLine();
-                using (_ = ImGuiEx.GroupBlock.Begin())
-                    DrawStats(cachedMemberInfo);
+                lock (cachedMemberInfo)
+                {
+                    ImGui.SameLine();
+                    ImGui.Dummy(Vector2.One * ImGuiEx.Scale * 10);
+                    ImGuiEx.AddVerticalLine(ImGuiEx.GetItemRectPosPercent(new Vector2(0.5f, 0)));
+                    ImGui.SameLine();
+                    using (_ = ImGuiEx.GroupBlock.Begin())
+                        DrawStats(cachedMemberInfo);
+                }
             }
-        }
-        else
-        {
-            cachedMemberInfo = null;
         }
         ImGui.End();
     }
@@ -314,4 +333,6 @@ public static unsafe class PartyInfo
         ElementType.Dark => new Vector4(0.9f, 0.4f, 0.9f, 1),
         _ => Vector4.One
     };
+
+    public static void Dispose() => cachedMemberInfo?.Dispose();
 }

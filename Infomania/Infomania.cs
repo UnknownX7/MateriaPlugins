@@ -22,6 +22,7 @@ public unsafe class Infomania : IMateriaPlugin
     {
         pluginServiceManager.EventHandler.Draw += Draw;
         pluginServiceManager.EventHandler.ToggleMenu = () => draw ^= true;
+        pluginServiceManager.EventHandler.Dispose += Dispose;
     }
 
     public void Draw()
@@ -112,5 +113,11 @@ public unsafe class Infomania : IMateriaPlugin
         }
 
         ImGui.End();
+    }
+
+    public static void Dispose()
+    {
+        Config?.Save();
+        PartyInfo.Dispose();
     }
 }
