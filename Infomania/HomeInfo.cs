@@ -35,6 +35,15 @@ public static unsafe class HomeInfo
         var remainingPremiumQuests = f(premiumQuestGroupCategory, 0);
 
         ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+
+        var maintenanceTimer = GetTimeUntilMaintenance();
+        if (maintenanceTimer >= TimeSpan.Zero)
+        {
+            DrawTimer("MAINTENANCE", maintenanceTimer, true, 0, 24);
+            ImGui.Spacing();
+            ImGui.Spacing();
+        }
+
         DrawResetTimer("Dailies", 4, 12, IsMissionBonusObtained(200001)); // Daily Mission Reset
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
         //DrawResetTimer("Guild Energy", 18, 0);
@@ -55,6 +64,7 @@ public static unsafe class HomeInfo
         if (craftTimer >= TimeSpan.Zero)
             DrawTimer("Crafting", craftTimer);
         ImGui.TextUnformatted($"Chocobo: {GetHighestChocoboShopRank()}");
+
         ImGui.End();
     }
 
@@ -120,4 +130,8 @@ public static unsafe class HomeInfo
         }
         return $"{highestRank.ToString().Replace("Plus", "+")} ({areaType})";
     }
+
+    private static TimeSpan GetTimeUntilMaintenance() => TimeSpan.FromMilliseconds(DataStore.NativePtr->master->dB->maintenanceTable->data->PtrEnumerable
+        .Where(p => (PlatformType)p.ptr->targetPlatformType is PlatformType.Any or PlatformType.Steam)
+        .Max(p => p.ptr->startDatetime) - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 }
