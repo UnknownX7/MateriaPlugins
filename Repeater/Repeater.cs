@@ -1,8 +1,10 @@
-﻿using ImGuiNET;
+﻿using System.Diagnostics;
+using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.KeyInput;
+using ECGen.Generated.Command.OutGame.Stamina;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
 
@@ -13,8 +15,10 @@ public unsafe class Repeater : IMateriaPlugin
     public string Name => "Repeater";
     public string Description => "Repeats battles for you";
 
+    private const int staminaRepeatDelayMs = 10 * 60_000;
     private bool draw = false;
     private bool repeating = false;
+    private readonly Stopwatch staminaRepeatTimer = new();
 
     public Repeater(PluginServiceManager pluginServiceManager)
     {
@@ -33,8 +37,17 @@ public unsafe class Repeater : IMateriaPlugin
             return;
         }
 
-        if (ModalManager.Instance?.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
+        if (ModalManager.Instance is not { } modalManager) return;
+
+        if (modalManager.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
+        {
             GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
+            staminaRepeatTimer.Restart();
+        }
+        else if (modalManager.GetCurrentModal<StaminaRecoverModal>() is { } staminaRecoverModal && staminaRepeatTimer is { IsRunning: true, ElapsedMilliseconds: > staminaRepeatDelayMs })
+        {
+            GameInterop.TapButton(staminaRecoverModal.NativePtr->modalCloseButton);
+        }
     }
 
     public void Draw()
@@ -46,7 +59,8 @@ public unsafe class Repeater : IMateriaPlugin
         }
 
         ImGui.Begin("Repeater", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        ImGui.Checkbox("##Auto", ref repeating);
+        if (ImGui.Checkbox("##Auto", ref repeating))
+            staminaRepeatTimer.Restart();
         ImGui.End();
     }
 }
