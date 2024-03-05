@@ -17,10 +17,17 @@ public static unsafe class HomeInfo
 {
     private static readonly Vector4 green = new(0.4f, 1, 0.4f, 1);
     private static readonly Vector4 red = new(1, 0.4f, 0.4f, 1);
+    private static bool? freeGachaAvailable;
 
     public static void Draw(HomeTopScreenPresenter* homeScreen)
     {
         if (homeScreen->currentContentState != HomeContentState.Top) return;
+
+        if (homeScreen->isInProgressClose)
+        {
+            freeGachaAvailable = null;
+            return;
+        }
 
         var gilShop = WorkManager.GetShopStore(101002);
         var total = 0L;
@@ -35,6 +42,9 @@ public static unsafe class HomeInfo
         var remainingPremiumQuests = f(premiumQuestGroupCategory, 0);
 
         ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+
+        if (freeGachaAvailable ??= GetFreeGachaAvailable())
+            ImGui.TextColored(new Vector4(1, 1, 0, 1), "FREE DRAW AVAILABLE!!!");
 
         var maintenanceTimer = GetTimeUntilMaintenance();
         if (maintenanceTimer >= TimeSpan.Zero)
@@ -134,4 +144,28 @@ public static unsafe class HomeInfo
     private static TimeSpan GetTimeUntilMaintenance() => TimeSpan.FromMilliseconds(DataStore.NativePtr->master->dB->maintenanceTable->data->PtrEnumerable
         .Where(p => (PlatformType)p.ptr->targetPlatformType is PlatformType.Any or PlatformType.Steam)
         .Max(p => p.ptr->startDatetime) - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+
+    private static bool GetFreeGachaAvailable()
+    {
+        var gachas = (Unmanaged_Array<GachaWork.GachaStore>*)WorkManager.NativePtr->gacha->gachaGroupStores->values->PtrEnumerable.First(p => p.ptr->masterGachaGroup->id == 3).ptr->gachaInfos;
+        foreach (var p in gachas->PtrEnumerable)
+        {
+            var isDisplay = (delegate* unmanaged<GachaWork.GachaStore*, nint, CBool>)p.ptr->@class->vtable.get_IsDisplay.methodPtr;
+            if (!isDisplay(p, 0)) continue;
+
+            var stepGroups = (Unmanaged_Array<GachaWork.GachaStepGroupStore>*)p.ptr->gachaStepGroupInfos;
+            foreach (var p2 in stepGroups->PtrEnumerable.Where(p2 => p2.ptr->masterGachaStepGroup->maxCount > 0))
+            {
+                var steps = (Unmanaged_Array<GachaWork.GachaStepStore>*)p2.ptr->gachaStepInfos;
+                if (steps->size != 1) continue; // TODO: Detect first step free draws
+
+                var step = steps->GetPtr(0);
+                if (step->masterGachaStep->consumptionCount > 0) continue;
+
+                var isDrewMaxCount = (delegate* unmanaged<GachaWork.GachaStepGroupStore*, nint, CBool>)p2.ptr->@class->vtable.get_IsDrewMaxCount.methodPtr;
+                if (!isDrewMaxCount(p2, 0)) return true;
+            }
+        }
+        return false;
+    }
 }
