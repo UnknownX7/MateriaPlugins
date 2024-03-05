@@ -39,7 +39,7 @@ public static unsafe class HomeInfo
         var maintenanceTimer = GetTimeUntilMaintenance();
         if (maintenanceTimer >= TimeSpan.Zero)
         {
-            DrawTimer("MAINTENANCE", maintenanceTimer, true, 0, 24);
+            DrawTimer("MAINTENANCE", maintenanceTimer, true, 21, 48);
             ImGui.Spacing();
             ImGui.Spacing();
         }

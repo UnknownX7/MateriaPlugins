@@ -49,7 +49,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
         if (Config.EnableBetterWeaponNotificationIcon)
             GridWeaponSelectModelCtorHook?.Enable();
         if (Config.DisableHiddenData)
+        {
             AnotherDungeonBossCellModelCtorHook?.Enable();
+            SetEnemyInfoAsyncHook?.Enable();
+        }
         if (Config.EnableRememberLastSelectedMateriaRecipe)
             SynthesisSelectScreenSetupParameterCtorHook?.Enable();
 
@@ -172,6 +175,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
         if (ImGui.Checkbox("Reveal Hidden Dungeon Bosses", ref b))
         {
             AnotherDungeonBossCellModelCtorHook?.Toggle();
+            SetEnemyInfoAsyncHook?.Toggle();
             Config.DisableHiddenData = b;
             Config.Save();
         }
@@ -221,12 +225,17 @@ public unsafe class SettingsPlus : IMateriaPlugin
         weaponMedalModels->size = prevSize;
     }
 
-    // TODO: Reveal missions and bosses on the map too
     private delegate void AnotherDungeonBossCellModelCtorDelegate(nint anotherDungeonBossCellModel, nint anotherBattleInfo, nint anotherBossInfos, CBool isWin, CBool showBossLabel, CBool isDisplayInfo, nint method);
     [GameSymbol("Command.OutGame.AnotherDungeon.AnotherDungeonBossCellModel$$.ctor", EnableHook = false)]
     private static IMateriaHook<AnotherDungeonBossCellModelCtorDelegate>? AnotherDungeonBossCellModelCtorHook;
     private static void AnotherDungeonBossCellModelCtorDetour(nint anotherDungeonBossCellModel, nint anotherBattleInfo, nint anotherBossInfos, CBool isWin, CBool showBossLabel, CBool isDisplayInfo, nint method) =>
         AnotherDungeonBossCellModelCtorHook!.Original(anotherDungeonBossCellModel, anotherBattleInfo, anotherBossInfos, isWin, showBossLabel, true, method);
+
+    private delegate nint SetEnemyInfoAsyncDelegate(nint retstr, nint enemyThumbnail, nint token, nint enemyInfo, CBool isUnknown, CBool isBoss, int thumbnailTapType, nint method);
+    [GameSymbol("Command.UI.EnemyThumbnail$$SetEnemyInfoAsync", EnableHook = false, ReturnPointer = true)]
+    private static IMateriaHook<SetEnemyInfoAsyncDelegate>? SetEnemyInfoAsyncHook;
+    private static nint SetEnemyInfoAsyncDetour(nint retstr, nint enemyThumbnail, nint token, nint enemyInfo, CBool isUnknown, CBool isBoss, int thumbnailTapType, nint method) =>
+        SetEnemyInfoAsyncHook!.Original(retstr, enemyThumbnail, token, enemyInfo, false, isBoss, thumbnailTapType, method);
 
     private static long lastMateriaRecipeId;
     private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
