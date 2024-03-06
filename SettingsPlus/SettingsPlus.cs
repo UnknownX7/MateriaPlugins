@@ -12,6 +12,7 @@ using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.System.Collections.Generic;
@@ -101,6 +102,23 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 var materiaRecipeStore = (MateriaWork.MateriaRecipeStore*)synthesisSelect->selectRecipe;
                 lastMateriaRecipeId = materiaRecipeStore->masterMateriaRecipe->id;
                 break;
+            case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.Party.MultiPartySelectScreenPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.DisableRenamedRecommendedParty:
+                var partySelect = (PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>*)currentScreen.NativePtr;
+                var partyInfo = partySelect->partySelect->selectPartyInfo;
+                if (partyInfo != null && partyInfo->userPartyName->stringLength > 0 && !partyInfo->userPartyName->Equals(partyInfo->defaultPartyName))
+                {
+                    if (partySelect->view->recommendFormationButton->IsActive())
+                        partySelect->view->recommendFormationButton->SetActive(false);
+                }
+                else if (!partySelect->view->recommendFormationButton->IsActive())
+                {
+                    partySelect->view->recommendFormationButton->SetActive(true);
+                }
+                break;
         }
 
         if (BattleSystem.Instance is { } battleSystem && BattleHUD.Instance is { } battleHUD)
@@ -161,6 +179,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
         ImGuiEx.SetItemTooltip("Prevents the optimize button from using\ncharacter specific parts when overboosting");
+
+        b = Config.DisableRenamedRecommendedParty;
+        if (ImGui.Checkbox("Disable Rcmd. on Renamed Parties", ref b))
+        {
+            Config.DisableRenamedRecommendedParty = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("You can delete a party to reset its name");
 
         b = Config.EnableBetterWeaponNotificationIcon;
         if (ImGui.Checkbox("Enable Better Weapon Notif. Icon", ref b))
