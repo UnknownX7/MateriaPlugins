@@ -109,14 +109,17 @@ public unsafe class SettingsPlus : IMateriaPlugin
             case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.DisableRenamedRecommendedParty:
                 var partySelect = (PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>*)currentScreen.NativePtr;
                 var partyInfo = partySelect->partySelect->selectPartyInfo;
-                if (partyInfo != null && partyInfo->userPartyName->stringLength > 0 && !partyInfo->userPartyName->Equals(partyInfo->defaultPartyName))
+                if (!partySelect->view->copyButton->IsActive())
                 {
-                    if (partySelect->view->recommendFormationButton->IsActive())
-                        partySelect->view->recommendFormationButton->SetActive(false);
-                }
-                else if (!partySelect->view->recommendFormationButton->IsActive())
-                {
-                    partySelect->view->recommendFormationButton->SetActive(true);
+                    if (partyInfo != null && partyInfo->userPartyName->stringLength > 0 && !partyInfo->userPartyName->Equals(partyInfo->defaultPartyName))
+                    {
+                        if (partySelect->view->recommendFormationButton->IsActive())
+                            partySelect->view->recommendFormationButton->SetActive(false);
+                    }
+                    else if (!partySelect->view->recommendFormationButton->IsActive())
+                    {
+                        partySelect->view->recommendFormationButton->SetActive(true);
+                    }
                 }
                 break;
         }
