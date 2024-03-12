@@ -32,7 +32,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     public static Configuration Config { get; } = PluginConfiguration.Load<Configuration>();
 
     private bool draw = false;
-    private readonly int[] res = { 960, 540 };
+    private readonly int[] res = [ 960, 540 ];
 
     public SettingsPlus(PluginServiceManager pluginServiceManager)
     {
