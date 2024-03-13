@@ -21,13 +21,13 @@ public static unsafe class HomeInfo
 
     public static void Draw(HomeTopScreenPresenter* homeScreen)
     {
-        if (homeScreen->currentContentState != HomeContentState.Top) return;
-
         if (homeScreen->isInProgressClose)
         {
             freeGachaAvailable = null;
             return;
         }
+
+        if (homeScreen->currentContentState != HomeContentState.Top) return;
 
         var gilShop = WorkManager.GetShopStore(101002);
         var total = 0L;
