@@ -1,75 +1,119 @@
-﻿using ImGuiNET;
+﻿using System;
+using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
 using System.Numerics;
-using ECGen.Generated.Command.OutGame;
-using ECGen.Generated.Command.OutGame.Gift;
-using ECGen.Generated.Command.OutGame.Home;
-using ECGen.Generated.Command.OutGame.Party;
-using ECGen.Generated.Command.OutGame.MultiBattle;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using Materia.Utilities;
 
 namespace Infomania;
+
+public abstract class Info
+{
+    public abstract bool Enabled { get; }
+    public bool LastFrameActive { get; set; }
+    public virtual void Activate() { }
+    public virtual void Update() { }
+    public virtual void Dispose() { }
+}
+
+public abstract class ScreenInfo : Info
+{
+    public abstract Type[] ValidScreens { get; }
+    public virtual bool ShowOnModal => false;
+    public abstract void Draw(Screen screen);
+}
+
+public abstract class ModalInfo : Info
+{
+    public abstract Type[] ValidModals { get; }
+    public abstract void Draw(Modal modal);
+}
 
 public unsafe class Infomania : IMateriaPlugin
 {
     public string Name => "Infomania";
     public string Description => "Displays extra information on certain menus";
     public static Configuration Config { get; } = PluginConfiguration.Load<Configuration>();
+    private readonly List<ScreenInfo> screenInfos = Assembly.GetExecutingAssembly().GetTypes<ScreenInfo>().Select(t => (ScreenInfo?)Activator.CreateInstance(t)).Where(i => i != null).ToList()!;
+    private readonly List<ModalInfo> modalInfos = Assembly.GetExecutingAssembly().GetTypes<ModalInfo>().Select(t => (ModalInfo?)Activator.CreateInstance(t)).Where(i => i != null).ToList()!;
 
     private bool draw = false;
 
     public Infomania(PluginServiceManager pluginServiceManager)
     {
+        pluginServiceManager.EventHandler.Update += Update;
         pluginServiceManager.EventHandler.Draw += Draw;
         pluginServiceManager.EventHandler.ToggleMenu = () => draw ^= true;
         pluginServiceManager.EventHandler.Dispose += Dispose;
     }
 
+    public void Update()
+    {
+        var currentModal = ModalManager.Instance?.CurrentModal;
+        var isModalActive = currentModal != null;
+        if (isModalActive)
+        {
+            var modalName = currentModal!.Type.Name;
+            foreach (var modalInfo in modalInfos)
+            {
+                if (!modalInfo.Enabled || modalInfo.ValidModals.All(t => t.Name != modalName))
+                {
+                    modalInfo.LastFrameActive = false;
+                    continue;
+                }
+
+                if (!modalInfo.LastFrameActive)
+                {
+                    modalInfo.Activate();
+                    modalInfo.LastFrameActive = true;
+                }
+
+                modalInfo.Update();
+            }
+        }
+
+        var screenName = ScreenManager.Instance?.CurrentScreen?.Type.Name;
+        if (screenName == null) return;
+
+        foreach (var screenInfo in screenInfos)
+        {
+            if (!screenInfo.Enabled || screenInfo.ValidScreens.All(t => t.Name != screenName))
+            {
+                screenInfo.LastFrameActive = false;
+                continue;
+            }
+
+            if (!screenInfo.LastFrameActive)
+            {
+                screenInfo.Activate();
+                screenInfo.LastFrameActive = true;
+            }
+
+            screenInfo.Update();
+        }
+    }
+
     public void Draw()
     {
+        var isModalActive = false;
+        if (ModalManager.Instance?.CurrentModal is { } modal)
+        {
+            isModalActive = true;
+            foreach (var modalInfo in modalInfos.Where(modalInfo => modalInfo.LastFrameActive))
+                modalInfo.Draw(modal);
+        }
+
+        if (ScreenManager.Instance?.CurrentScreen is { } screen)
+        {
+            foreach (var screenInfo in screenInfos.Where(screenInfo => screenInfo.LastFrameActive && (!isModalActive || screenInfo.ShowOnModal)))
+                screenInfo.Draw(screen);
+        }
+
         if (draw)
             DrawSettings();
-
-        var currentModal = ModalManager.Instance?.CurrentModal;
-        switch (currentModal?.Type.FullName)
-        {
-            case "Command.OutGame.Gift.GiftModalPresenter" when Config.EnableGiftInfo:
-                GiftInfo.Draw((GiftModalPresenter*)currentModal.NativePtr);
-                return;
-            case "Command.OutGame.BossDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.DrawBossDetailInfo((BossDetailModalPresenter*)currentModal.NativePtr);
-                return;
-            case "Command.OutGame.BossSelectDetailModalPresenter" when Config.EnableBossDetailInfo:
-                BossDetailInfo.DrawBossSelectDetailInfo();
-                return;
-            case null:
-                break;
-            default:
-                return;
-        }
-
-        var currentScreen = ScreenManager.Instance?.CurrentScreen;
-        switch (currentScreen?.Type.FullName)
-        {
-            case "Command.OutGame.Home.HomeTopScreenPresenter" when Config.EnableHomeInfo:
-                HomeInfo.Draw((HomeTopScreenPresenter*)currentScreen.NativePtr);
-                break;
-            case "Command.OutGame.Party.PartySelectScreenPresenter" when Config.EnablePartySelectInfo:
-            case "Command.OutGame.Party.SoloPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
-            case "Command.OutGame.Party.StoryPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
-            case "Command.OutGame.Party.MultiPartySelectScreenPresenter" when Config.EnablePartySelectInfo:
-            case "Command.OutGame.MultiBattle.MultiAreaBattlePartySelectPresenter" when Config.EnablePartySelectInfo:
-                PartyInfo.DrawPartySelectInfo((PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>*)currentScreen.NativePtr);
-                break;
-            case "Command.OutGame.MultiBattle.MultiAreaBattleMatchingRoomScreenPresenter" when Config.EnablePartySelectInfo:
-                PartyInfo.DrawPartySelectInfo((MultiAreaBattleMatchingRoomScreenPresenter*)currentScreen.NativePtr);
-                break;
-            case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.EnablePartyEditInfo:
-            case "Command.OutGame.Party.PartyEditTopScreenMultiPresenter" when Config.EnablePartyEditInfo:
-            case "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" when Config.EnablePartyEditInfo:
-                PartyInfo.DrawPartyEditInfo((PartyEditTopScreenPresenterBase*)currentScreen.NativePtr);
-                break;
-        }
     }
 
     private void DrawSettings()
@@ -115,9 +159,12 @@ public unsafe class Infomania : IMateriaPlugin
         ImGui.End();
     }
 
-    public static void Dispose()
+    public void Dispose()
     {
         Config?.Save();
-        PartyInfo.Dispose();
+        foreach (var modalInfo in modalInfos)
+            modalInfo.Dispose();
+        foreach (var screenInfo in screenInfos)
+            screenInfo.Dispose();
     }
 }

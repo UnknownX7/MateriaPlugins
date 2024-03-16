@@ -1,26 +1,28 @@
+using System;
 using ImGuiNET;
 using System.Numerics;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
-using ECGen.Generated.Command.OutGame.Boss;
 using ECGen.Generated.Command.Work;
-using Materia.Attributes;
 using Materia.Game;
-using Materia;
 
 namespace Infomania;
 
-[Injection]
-public static unsafe class BossDetailInfo
+public unsafe class BossDetailInfo : ModalInfo
 {
-    private static BossDataSelectModel* cachedBossModel;
+    public override bool Enabled => Infomania.Config.EnableBossDetailInfo;
+    public override Type[] ValidModals { get; } = [ typeof(BossDetailModalPresenter) ];
+
+    public override void Draw(Modal modal)
+    {
+        if (!Il2CppType<BossDetailModalPresenter>.Is(modal.NativePtr, out var bossModal)) return;
+        DrawStats(bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPtr(0)->bossDataSelectModel : null);
+    }
 
     private static int CalcEnemyBaseDamage(int attack, int defense) => attack * 2000 / (defense * 100 + 10000);
     private static int CalcEnemyDamageReduction(int defense) => 100 - (int)(32000 / (defense * 2.2f + 100));
-    public static void DrawBossDetailInfo(BossDetailModalPresenter* bossModal) => DrawStats(bossModal->contentParameterCaches != null ? bossModal->contentParameterCaches->GetPtr(0)->bossDataSelectModel : null);
-    public static void DrawBossSelectDetailInfo() => DrawStats(cachedBossModel);
 
-    private static void DrawStats(BossDataSelectModel* bossModel)
+    public static void DrawStats(BossDataSelectModel* bossModel)
     {
         if (bossModel == null) return;
 
@@ -74,15 +76,6 @@ public static unsafe class BossDetailInfo
     private static void DrawElementResistText(ElementType element, int permil)
     {
         if (permil != 0)
-            ImGui.TextColored(PartyInfo.GetElementColor(element), $"{PartyInfo.GetElementName(element)}: {permil / 10}%%");
-    }
-
-    private delegate void SetupContentDelegate(BossDetailDescriptionContent* bossDetailDescriptionContent, BossDataSelectModel* model, nint method);
-    [GameSymbol("Command.OutGame.Boss.BossDetailDescriptionContent$$SetupContent")]
-    private static IMateriaHook<SetupContentDelegate>? SetupContentHook;
-    private static void SetupContentDetour(BossDetailDescriptionContent* bossDetailDescriptionContent, BossDataSelectModel* model, nint method)
-    {
-        cachedBossModel = model;
-        SetupContentHook!.Original(bossDetailDescriptionContent, model, method);
+            ImGui.TextColored(PartyEditInfo.GetElementColor(element), $"{PartyEditInfo.GetElementName(element)}: {permil / 10}%%");
     }
 }

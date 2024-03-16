@@ -13,21 +13,21 @@ using WorkManager = Materia.Game.WorkManager;
 
 namespace Infomania;
 
-public static unsafe class HomeInfo
+public unsafe class HomeInfo : ScreenInfo
 {
     private static readonly Vector4 green = new(0.4f, 1, 0.4f, 1);
     private static readonly Vector4 red = new(1, 0.4f, 0.4f, 1);
-    private static bool? freeGachaAvailable;
 
-    public static void Draw(HomeTopScreenPresenter* homeScreen)
+    public override bool Enabled => Infomania.Config.EnableHomeInfo;
+    public override Type[] ValidScreens { get; } = [ typeof(HomeTopScreenPresenter) ];
+
+    private bool freeGachaAvailable;
+
+    public override void Activate() => freeGachaAvailable = GetFreeGachaAvailable();
+
+    public override void Draw(Screen screen)
     {
-        if (homeScreen->isInProgressClose)
-        {
-            freeGachaAvailable = null;
-            return;
-        }
-
-        if (homeScreen->currentContentState != HomeContentState.Top) return;
+        if (!Il2CppType<HomeTopScreenPresenter>.Is(screen.NativePtr, out var homeScreen) || homeScreen->currentContentState != HomeContentState.Top) return;
 
         var gilShop = WorkManager.GetShopStore(101002);
         var total = 0L;
@@ -43,7 +43,7 @@ public static unsafe class HomeInfo
 
         ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
 
-        if (freeGachaAvailable ??= GetFreeGachaAvailable())
+        if (freeGachaAvailable)
             ImGui.TextColored(new Vector4(1, 1, 0, 1), "FREE DRAW AVAILABLE!!!");
 
         var maintenanceTimer = GetTimeUntilMaintenance();

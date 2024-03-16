@@ -2,11 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using ECGen.Generated.Command.Battle;
-using ECGen.Generated;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame;
-using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.Work;
 using ImGuiNET;
@@ -15,99 +12,23 @@ using WorkManager = Materia.Game.WorkManager;
 
 namespace Infomania;
 
-public static unsafe class PartyInfo
+public unsafe class PartyEditInfo : ScreenInfo
 {
-    private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
-    private static int CalcAllyDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
+    public override bool Enabled => Infomania.Config.EnablePartyEditInfo;
 
-    private static int CalcDamage(int baseDamage, int skillCoefficient, int potencyAdd, int potencyCoefficient, int stanceBonusCoefficient)
+    public override Type[] ValidScreens { get; } =
+    [
+        typeof(PartyEditTopScreenPresenter),
+        typeof(PartyEditTopScreenMultiPresenter),
+        typeof(MultiAreaBattlePartyEditPresenter)
+    ];
+
+    private PartyCharacterInfo* cachedAfterSelectPartyCharacterInfo;
+    private Il2CppObject<PartyCharacterInfo>? cachedMemberInfo;
+    public override void Draw(Screen screen)
     {
-        var skill = (skillCoefficient + potencyAdd) * (1000 + potencyCoefficient) / 1000;
-        return baseDamage * skill / 1000 * (1000 + stanceBonusCoefficient) / 1000;
-    }
+        if (!Il2CppType<PartyEditTopScreenPresenterBase>.Is(screen.NativePtr, out var partyEdit)) return;
 
-    private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
-
-    public static void DrawPartySelectInfo(PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>* partySelect)
-    {
-        var selectedParty = partySelect->partySelect->selectPartyInfo;
-        if (selectedParty == null) return;
-
-        switch (selectedParty->partyCharacterInfos->size)
-        {
-            case 1:
-            {
-                var character = selectedParty->partyCharacterInfos->GetPtr(0);
-                if (character->characterId == 0) return;
-                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-                DrawStats(character);
-                ImGui.End();
-                break;
-            }
-            case 3:
-            {
-                var characterInfos = new List<nint>(3);
-
-                var leftCharacter = selectedParty->partyCharacterInfos->GetPtr(1);
-                if (leftCharacter->characterId != 0)
-                    characterInfos.Add((nint)leftCharacter);
-
-                var middleCharacter = selectedParty->partyCharacterInfos->GetPtr(0);
-                if (middleCharacter->characterId != 0)
-                    characterInfos.Add((nint)middleCharacter);
-
-                var rightCharacter = selectedParty->partyCharacterInfos->GetPtr(2);
-                if (rightCharacter->characterId != 0)
-                    characterInfos.Add((nint)rightCharacter);
-
-                if (characterInfos.Count == 0) return;
-
-                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-                DrawStats(characterInfos);
-                ImGui.End();
-                break;
-            }
-        }
-    }
-
-    public static void DrawPartySelectInfo(MultiAreaBattleMatchingRoomScreenPresenter* matchingRoom)
-    {
-        if (matchingRoom->prevRoomMembers == null || matchingRoom->battleUserUiIndexDictionary == null) return;
-
-        const int maxUsers = 3;
-        var users = stackalloc long[maxUsers];
-        foreach (var p in matchingRoom->battleUserUiIndexDictionary->Enumerable)
-        {
-            var index = (int)p.ptr->value;
-            if (index < maxUsers)
-                users[index] = (long)p.ptr->key;
-        }
-
-        var characterInfos = new List<nint>();
-        var roomMembers = (Unmanaged_Array<RoomMember>*)matchingRoom->prevRoomMembers;
-        for (int i = 0; i < maxUsers; i++)
-        {
-            var id = users[i];
-            if (id == 0) continue;
-            var member = roomMembers->PtrEnumerable.FirstOrDefault(ptr => ptr.ptr->battleUserId == id).ptr;
-            if (member == null || member->userName == null) continue;
-            if (i == 1 && characterInfos.Count > 0) // Left-most character
-                characterInfos.Insert(0, (nint)member->partyCharacterInfo);
-            else
-                characterInfos.Add((nint)member->partyCharacterInfo);
-        }
-
-        if (characterInfos.Count == 0) return;
-
-        ImGui.Begin("MultiPartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        DrawStats(characterInfos);
-        ImGui.End();
-    }
-
-    private static PartyCharacterInfo* cachedAfterSelectPartyCharacterInfo;
-    private static Il2CppObject<PartyCharacterInfo>? cachedMemberInfo;
-    public static void DrawPartyEditInfo(PartyEditTopScreenPresenterBase* partyEdit)
-    {
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
@@ -152,7 +73,20 @@ public static unsafe class PartyInfo
         ImGui.End();
     }
 
-    private static void DrawStats(PartyCharacterInfo* characterInfo)
+    public override void Dispose() => cachedMemberInfo?.Dispose();
+
+    private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
+    private static int CalcAllyDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
+
+    private static int CalcDamage(int baseDamage, int skillCoefficient, int potencyAdd, int potencyCoefficient, int stanceBonusCoefficient)
+    {
+        var skill = (skillCoefficient + potencyAdd) * (1000 + potencyCoefficient) / 1000;
+        return baseDamage * skill / 1000 * (1000 + stanceBonusCoefficient) / 1000;
+    }
+
+    private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
+
+    public static void DrawStats(PartyCharacterInfo* characterInfo)
     {
         var physAdd = 0;
         var physCoefficient = 0;
@@ -241,7 +175,7 @@ public static unsafe class PartyInfo
         ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
     }
 
-    private static void DrawStats(PartyCharacterInfo*[] characterInfos)
+    public static void DrawStats(PartyCharacterInfo*[] characterInfos)
     {
         var first = true;
         foreach (var characterInfo in characterInfos)
@@ -262,7 +196,7 @@ public static unsafe class PartyInfo
         }
     }
 
-    private static void DrawStats(IReadOnlyList<nint> characterInfos)
+    public static void DrawStats(IReadOnlyList<nint> characterInfos)
     {
         if (characterInfos.Count == 0) return;
         var array = new PartyCharacterInfo*[characterInfos.Count];
@@ -333,6 +267,4 @@ public static unsafe class PartyInfo
         ElementType.Dark => new Vector4(0.9f, 0.4f, 0.9f, 1),
         _ => Vector4.One
     };
-
-    public static void Dispose() => cachedMemberInfo?.Dispose();
 }

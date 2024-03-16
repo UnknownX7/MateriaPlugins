@@ -3,13 +3,19 @@ using System.Linq;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame.Gift;
 using ImGuiNET;
+using Materia.Game;
 
 namespace Infomania;
 
-public static unsafe class GiftInfo
+public unsafe class GiftInfo : ModalInfo
 {
-    public static void Draw(GiftModalPresenter* giftModal)
+    public override bool Enabled => Infomania.Config.EnableGiftInfo;
+    public override Type[] ValidModals { get; } = [ typeof(GiftModalPresenter) ];
+
+    public override void Draw(Modal modal)
     {
+        if (!Il2CppType<GiftModalPresenter>.Is(modal.NativePtr, out var giftModal)) return;
+
         var entry = giftModal->itemModel->giftListCache->Enumerable.FirstOrDefault().ptr;
         if (entry == null) return;
 
