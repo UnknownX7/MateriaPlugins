@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
@@ -52,35 +52,47 @@ public unsafe class Infomania : IMateriaPlugin
 
     public void Update()
     {
-        var currentModal = ModalManager.Instance?.CurrentModal;
-        var isModalActive = currentModal != null;
-        if (isModalActive)
+        if (ModalManager.Instance?.CurrentModal != null)
         {
-            var modalName = currentModal!.Type.Name;
-            foreach (var modalInfo in modalInfos)
-            {
-                if (!modalInfo.Enabled || modalInfo.ValidModals.All(t => t.Name != modalName))
-                {
-                    modalInfo.LastFrameActive = false;
-                    continue;
-                }
-
-                if (!modalInfo.LastFrameActive)
-                {
-                    modalInfo.Activate();
-                    modalInfo.LastFrameActive = true;
-                }
-
+            foreach (var modalInfo in modalInfos.Where(modalInfo => modalInfo.LastFrameActive))
                 modalInfo.Update();
-            }
         }
 
-        var screenName = ScreenManager.Instance?.CurrentScreen?.Type.Name;
-        if (screenName == null) return;
+        if (ScreenManager.Instance?.CurrentScreen != null)
+        {
+            foreach (var screenInfo in screenInfos.Where(screenInfo => screenInfo.LastFrameActive))
+                screenInfo.Update();
+        }
+    }
 
+    public void Draw()
+    {
+        var modal = ModalManager.Instance?.CurrentModal;
+        var modalName = modal?.Type.Name;
+        var isModalActive = modalName != null;
+        foreach (var modalInfo in modalInfos)
+        {
+            if (!isModalActive || !modalInfo.Enabled || modalInfo.ValidModals.All(t => t.Name != modalName))
+            {
+                modalInfo.LastFrameActive = false;
+                continue;
+            }
+
+            if (!modalInfo.LastFrameActive)
+            {
+                modalInfo.Activate();
+                modalInfo.LastFrameActive = true;
+            }
+
+            modalInfo.Draw(modal!);
+        }
+
+        var screen = ScreenManager.Instance?.CurrentScreen;
+        var screenName = screen?.Type.Name;
+        var isScreenActive = screenName != null;
         foreach (var screenInfo in screenInfos)
         {
-            if (!screenInfo.Enabled || screenInfo.ValidScreens.All(t => t.Name != screenName))
+            if (!isScreenActive || !screenInfo.Enabled || screenInfo.ValidScreens.All(t => t.Name != screenName))
             {
                 screenInfo.LastFrameActive = false;
                 continue;
@@ -92,24 +104,7 @@ public unsafe class Infomania : IMateriaPlugin
                 screenInfo.LastFrameActive = true;
             }
 
-            screenInfo.Update();
-        }
-    }
-
-    public void Draw()
-    {
-        var isModalActive = false;
-        if (ModalManager.Instance?.CurrentModal is { } modal)
-        {
-            isModalActive = true;
-            foreach (var modalInfo in modalInfos.Where(modalInfo => modalInfo.LastFrameActive))
-                modalInfo.Draw(modal);
-        }
-
-        if (ScreenManager.Instance?.CurrentScreen is { } screen)
-        {
-            foreach (var screenInfo in screenInfos.Where(screenInfo => screenInfo.LastFrameActive && (!isModalActive || screenInfo.ShowOnModal)))
-                screenInfo.Draw(screen);
+            screenInfo.Draw(screen!);
         }
 
         if (draw)
