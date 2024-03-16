@@ -70,6 +70,8 @@ public unsafe class HomeInfo : ScreenInfo
         ImGui.Spacing();
         ImGui.Spacing();
 
+        var expUntil = WorkManager.NextRequiredUserExp - WorkManager.NativePtr->user->userStatusStore->userStatus->exp;
+        ImGui.TextUnformatted($"Stamina To Lv.: {(expUntil + 9) / 10}");
         var craftTimer = GetTimeUntilCraftFinished();
         if (craftTimer >= TimeSpan.Zero)
             DrawTimer("Crafting", craftTimer);
