@@ -41,7 +41,7 @@ public unsafe class HomeInfo : ScreenInfo
         var f = (delegate* unmanaged<AreaBattleWork.SoloAreaGroupCategoryStore*, nint, long>)premiumQuestGroupCategory->@class->vtable.get_RemainingChallengeCount.methodPtr;
         var remainingPremiumQuests = f(premiumQuestGroupCategory, 0);
 
-        ImGui.Begin("HomeInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        Infomania.BeginInfoWindow("HomeInfo");
 
         if (freeGachaAvailable)
             ImGui.TextColored(new Vector4(1, 1, 0, 1), "FREE DRAW AVAILABLE!!!");

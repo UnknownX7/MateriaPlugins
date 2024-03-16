@@ -32,7 +32,7 @@ public unsafe class PartySelectInfo : ScreenInfo
             {
                 var character = selectedParty->partyCharacterInfos->GetPtr(0);
                 if (character->characterId == 0) return;
-                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+                Infomania.BeginInfoWindow("PartySelectInfo");
                 PartyEditInfo.DrawStats(character);
                 ImGui.End();
                 break;
@@ -55,7 +55,7 @@ public unsafe class PartySelectInfo : ScreenInfo
 
                 if (characterInfos.Count == 0) return;
 
-                ImGui.Begin("PartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+                Infomania.BeginInfoWindow("PartySelectInfo");
                 PartyEditInfo.DrawStats(characterInfos);
                 ImGui.End();
                 break;

@@ -43,7 +43,7 @@ public unsafe class BossDetailInfo : ModalInfo
 
         if (statusParamInfo == null) return;
 
-        ImGui.Begin("BossDetailInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        Infomania.BeginInfoWindow("BossDetailInfo");
 
         ImGui.BeginGroup();
         ImGui.TextUnformatted($"HP: {(statusParamInfo->dummyHp > 0 ? statusParamInfo->dummyHp : statusParamInfo->hp)}");

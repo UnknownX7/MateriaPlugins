@@ -32,7 +32,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
-        ImGui.Begin("PartyEditInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        Infomania.BeginInfoWindow("PartyEditInfo");
         using (_ = ImGuiEx.GroupBlock.Begin())
             DrawStats(characterInfo);
         if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is not (PartyEditSelectType.None or PartyEditSelectType.Character or PartyEditSelectType.Costume or PartyEditSelectType.DisplayWeapon or PartyEditSelectType.SpecialSkill))

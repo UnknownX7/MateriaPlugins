@@ -25,7 +25,7 @@ public unsafe class GiftInfo : ModalInfo
 
         if (staminaTonicCount == 0) return;
 
-        ImGui.Begin("GiftInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        Infomania.BeginInfoWindow("GiftInfo");
         ImGui.TextUnformatted($"Stamina Tonics: {staminaTonicCount}");
         ImGui.TextUnformatted($"First Expiry: {DateTimeOffset.FromUnixTimeMilliseconds(firstExpiry).ToLocalTime():g}");
         ImGui.End();

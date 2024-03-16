@@ -46,7 +46,7 @@ public unsafe class MultiPartyInfo : ScreenInfo
 
         if (characterInfos.Count == 0) return;
 
-        ImGui.Begin("MultiPartySelectInfo", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
+        Infomania.BeginInfoWindow("MultiPartySelectInfo");
         PartyEditInfo.DrawStats(characterInfos);
         ImGui.End();
     }

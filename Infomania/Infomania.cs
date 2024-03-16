@@ -167,4 +167,29 @@ public unsafe class Infomania : IMateriaPlugin
         foreach (var screenInfo in screenInfos)
             screenInfo.Dispose();
     }
+
+    public static void BeginInfoWindow(string id)
+    {
+        if (!Config.InfoConfigs.TryGetValue(id, out var config))
+        {
+            config = new Configuration.InfoConfiguration();
+            Config.InfoConfigs.Add(id, config);
+            Config.Save();
+        }
+
+        var flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration;
+        if (config.Locked)
+            flags |= ImGuiWindowFlags.NoMove;
+        ImGui.Begin(id, flags);
+
+        if (ImGui.BeginPopupContextWindow())
+        {
+            if (ImGui.Selectable(config.Locked ? "Unlock" : "Lock"))
+            {
+                config.Locked ^= true;
+                Config.Save();
+            }
+            ImGui.EndPopup();
+        }
+    }
 }
