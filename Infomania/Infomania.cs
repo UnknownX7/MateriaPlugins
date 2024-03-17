@@ -104,7 +104,8 @@ public unsafe class Infomania : IMateriaPlugin
                 screenInfo.LastFrameActive = true;
             }
 
-            screenInfo.Draw(screen!);
+            if (!isModalActive || screenInfo.ShowOnModal)
+                screenInfo.Draw(screen!);
         }
 
         if (draw)
