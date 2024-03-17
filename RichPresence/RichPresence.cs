@@ -1,4 +1,4 @@
-﻿using DiscordRPC;
+using DiscordRPC;
 using DiscordRPC.Logging;
 using ECGen.Generated;
 using ECGen.Generated.Command;
@@ -49,8 +49,7 @@ public unsafe class RichPresence : IMateriaPlugin
         pluginServiceManager.EventHandler.Dispose += Dispose;
 
         PluginServiceManager = pluginServiceManager;
-        if (Config.EnableRichPresence)
-            CreateClient();
+        CreateClient();
     }
 
     public static void CreateClient()
@@ -61,6 +60,8 @@ public unsafe class RichPresence : IMateriaPlugin
         };
 
         client.OnReady += (sender, e) => PluginServiceManager.Log.Info($"Discord Username: {e.User.Username}");
+        client.OnJoinRequested += (sender, e) => PluginServiceManager.Log.Info("Join Request Received");
+
         client.OnJoin += (sender, e) =>
         {
             PluginServiceManager.Log.Info($"Joined Game: {e.Secret}");
@@ -68,13 +69,19 @@ public unsafe class RichPresence : IMateriaPlugin
         };
 
         client.Initialize();
-        client.RegisterUriScheme("2484110");
+
+        client.RegisterUriScheme(null, "explorer steam://rungameid/2484110");
+        client.Subscribe(EventType.Join);
+        client.Subscribe(EventType.JoinRequest);
         client.SetPresence(defaultPresence);
     }
 
     public void Update()
     {
         if (client == null) return;
+
+        client.Invoke();
+        if (!Config.EnableRichPresence) return;
 
         var sceneBehaviourManager = GetSingletonMonoBehaviourInstance<SceneBehaviourManager>();
         if (sceneBehaviourManager == null) return;
@@ -176,7 +183,6 @@ public unsafe class RichPresence : IMateriaPlugin
         }
 
         client.SetPresence(presence);
-        client.Invoke();
     }
 
     public void Draw()
@@ -190,15 +196,15 @@ public unsafe class RichPresence : IMateriaPlugin
         if (ImGui.Checkbox("Enable Rich Presence", ref b))
         {
             Config.EnableRichPresence = b;
-            if (b)
-            {
-                CreateClient();
-            }
-            else
-            {
-                client?.Dispose();
-                client = null;
-            }
+            if (!b)
+                client?.ClearPresence();
+            Config.Save();
+        }
+
+        b = Config.EnableOnlyInLobby;
+        if (ImGui.Checkbox("Enable Only In Private Lobby", ref b))
+        {
+            Config.EnableOnlyInLobby = b;
             Config.Save();
         }
 
@@ -213,13 +219,6 @@ public unsafe class RichPresence : IMateriaPlugin
         if (ImGui.Checkbox("Enable Multiplayer Invites", ref b))
         {
             Config.EnableMultiplayerInvites = b;
-            Config.Save();
-        }
-
-        b = Config.EnableOnlyInLobby;
-        if (ImGui.Checkbox("Enable Only In Private Lobby", ref b))
-        {
-            Config.EnableOnlyInLobby = b;
             Config.Save();
         }
 
