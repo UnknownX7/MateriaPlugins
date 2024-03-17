@@ -11,7 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SettingsPlus", "SettingsPlu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infomania", "Infomania\Infomania.csproj", "{F66C2FE0-C298-4423-9B22-FB265AF398D5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MicroMacros", "MicroMacros\MicroMacros.csproj", "{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MicroMacros", "MicroMacros\MicroMacros.csproj", "{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RichPresence", "RichPresence\RichPresence.csproj", "{2AB6C9A1-9A70-45D2-822C-56B3D6B53D50}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43FED5A2-A39A-493D-9AC2-12BFA37DF48C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2AB6C9A1-9A70-45D2-822C-56B3D6B53D50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2AB6C9A1-9A70-45D2-822C-56B3D6B53D50}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2AB6C9A1-9A70-45D2-822C-56B3D6B53D50}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2AB6C9A1-9A70-45D2-822C-56B3D6B53D50}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
