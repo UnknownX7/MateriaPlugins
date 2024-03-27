@@ -1,4 +1,4 @@
-using DiscordRPC;
+﻿using DiscordRPC;
 using DiscordRPC.Logging;
 using ECGen.Generated;
 using ECGen.Generated.Command;
@@ -83,7 +83,7 @@ public unsafe class RichPresence : IMateriaPlugin
         client.Invoke();
         if (!Config.EnableRichPresence) return;
 
-        var sceneBehaviourManager = GetSingletonMonoBehaviourInstance<SceneBehaviourManager>();
+        var sceneBehaviourManager = GameInterop.GetSingletonMonoBehaviourInstance<SceneBehaviourManager>();
         if (sceneBehaviourManager == null) return;
 
         var currentScene = sceneBehaviourManager->currentSceneBehaviour->value;
@@ -101,7 +101,7 @@ public unsafe class RichPresence : IMateriaPlugin
                     var areaLanguageId = dungeonStore->masterAnotherArea->nameLanguageId;
                     if (dungeonLanguageId == 0 || areaLanguageId == 0) break;
 
-                    presence.Details = $"{getLocalizedText(LocalizeTextCategory.AnotherArea, areaLanguageId)->ToString()} {getLocalizedText(LocalizeTextCategory.Dungeon, dungeonLanguageId)->ToString()}";
+                    presence.Details = $"{GameInterop.GetLocalizedText(LocalizeTextCategory.AnotherArea, areaLanguageId)} {GameInterop.GetLocalizedText(LocalizeTextCategory.Dungeon, dungeonLanguageId)}";
                     presence.State = dungeonSystem.IsBattling ? "In Battle" : "Wandering Around";
                     presence.Assets = new Assets { LargeImageKey = "dungeon" };
                     break;
@@ -114,7 +114,7 @@ public unsafe class RichPresence : IMateriaPlugin
                 case DungeonType.CharacterStory:
                     if (!Il2CppType<DungeonWork.StoryDungeonStore>.Is(dungeonSystem.NativePtr->storyDungeonInfo, out var storyDungeonStore)) break;
                     presence.Details = "In Cutscene";
-                    presence.State = getLocalizedText(LocalizeTextCategory.Dungeon, storyDungeonStore->masterDungeon->nameLanguageId)->ToString();
+                    presence.State = GameInterop.GetLocalizedText(LocalizeTextCategory.Dungeon, storyDungeonStore->masterDungeon->nameLanguageId);
                     presence.Assets = new Assets { LargeImageKey = "story" };
                     break;
             }
@@ -145,12 +145,12 @@ public unsafe class RichPresence : IMateriaPlugin
                 {
                     var multiAreaStore = WorkManager.GetMultiAreaStore(multiBattleStore->masterMultiAreaBattle->multiAreaId);
                     presence.State = multiAreaStore != null
-                        ? $"{getLocalizedText(LocalizeTextCategory.MultiArea, multiAreaStore->masterMultiArea->nameLanguageId)->ToString()} {getLocalizedText(LocalizeTextCategory.MultiAreaBattle, multiBattleStore->masterMultiAreaBattle->nameLanguageId)->ToString()}"
-                        : getLocalizedText(LocalizeTextCategory.MultiAreaBattle, multiBattleStore->masterMultiAreaBattle->nameLanguageId)->ToString();
+                        ? $"{GameInterop.GetLocalizedText(LocalizeTextCategory.MultiArea, multiAreaStore->masterMultiArea->nameLanguageId)} {GameInterop.GetLocalizedText(LocalizeTextCategory.MultiAreaBattle, multiBattleStore->masterMultiAreaBattle->nameLanguageId)}"
+                        : GameInterop.GetLocalizedText(LocalizeTextCategory.MultiAreaBattle, multiBattleStore->masterMultiAreaBattle->nameLanguageId);
                 }
                 else if (eventStore != null)
                 {
-                    presence.State = getLocalizedText(LocalizeTextCategory.EventMultiBattle, eventStore->masterEventMultiBattle->nameLanguageId)->ToString();
+                    presence.State = GameInterop.GetLocalizedText(LocalizeTextCategory.EventMultiBattle, eventStore->masterEventMultiBattle->nameLanguageId);
                 }
 
                 if (Config.EnableMultiplayerInvites && room->param->privateRoomNumber > 0)
@@ -230,19 +230,4 @@ public unsafe class RichPresence : IMateriaPlugin
         Config?.Save();
         client?.Dispose();
     }
-
-    [GameSymbol("SingletonMonoBehaviour<object>$$get_Instance", Required = true)]
-    private static delegate* unmanaged<nint, nint> singletonMonoBehaviourGetInstance;
-    public static nint GetSingletonMonoBehaviourInstance(string name, int symbolIndex = 0)
-    {
-        if (!GameData.TryGetSymbolAddress(symbolIndex > 0 ? $"Method$SingletonMonoBehaviour<{name}>.get_Instance()_{symbolIndex}" : $"Method$SingletonMonoBehaviour<{name}>.get_Instance()", out var address)) return nint.Zero;
-        address = *(nint*)address;
-        return (nuint)address <= uint.MaxValue ? nint.Zero : singletonMonoBehaviourGetInstance(address);
-    }
-
-    public static T* GetSingletonMonoBehaviourInstance<T>(string name, int symbolIndex = 0) where T : unmanaged => (T*)GetSingletonMonoBehaviourInstance(name, symbolIndex);
-    public static T* GetSingletonMonoBehaviourInstance<T>(int symbolIndex = 0) where T : unmanaged => (T*)GetSingletonMonoBehaviourInstance(typeof(T).Name, symbolIndex);
-
-    [Signature("E9 ?? ?? ?? ?? 89 4C 24 30", Required = true)]
-    private static delegate* unmanaged<LocalizeTextCategory, long, Unmanaged_String*> getLocalizedText;
 }
