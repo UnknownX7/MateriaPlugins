@@ -32,13 +32,6 @@ public unsafe class RichPresence : IMateriaPlugin
     public static Configuration Config { get; } = PluginConfiguration.Load<Configuration>();
     private static DiscordRpcClient? client;
 
-    private static readonly DiscordRPC.RichPresence defaultPresence = new()
-    {
-        Details = "Title Screen",
-        State = "Zzz...",
-        Assets = new() { LargeImageKey = "default" }
-    };
-
     private bool draw = false;
 
     public RichPresence(PluginServiceManager pluginServiceManager)
@@ -73,7 +66,6 @@ public unsafe class RichPresence : IMateriaPlugin
         client.RegisterUriScheme(null, "explorer steam://rungameid/2484110");
         client.Subscribe(EventType.Join);
         client.Subscribe(EventType.JoinRequest);
-        client.SetPresence(defaultPresence);
     }
 
     public void Update()
