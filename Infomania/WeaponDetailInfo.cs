@@ -20,12 +20,14 @@ public unsafe class WeaponDetailInfo : ModalInfo
 
     public override void Draw(Modal modal)
     {
+        if (!Il2CppType<WeaponDetailModalPresenter>.Is(modal.NativePtr, out var weaponDetailModal)) return;
+
         var refresh = false;
         Infomania.BeginInfoWindow("WeaponDetailInfo");
 
         if (ImGui.BeginTabBar("WeaponDetailInfoTabs"))
         {
-            if (ImGui.BeginTabItem("Presets"))
+            if (ImGui.BeginTabItem("Simple"))
             {
                 if (ImGui.Button("Lv. 80"))
                 {
@@ -83,7 +85,7 @@ public unsafe class WeaponDetailInfo : ModalInfo
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("Custom"))
+            if (ImGui.BeginTabItem("Advanced"))
             {
                 refresh |= ImGui.SliderInt("Level", ref level, 1, 120, null, ImGuiSliderFlags.AlwaysClamp);
                 refresh |= ImGui.SliderInt("OB", ref upgradeCount, 0, 30, null, ImGuiSliderFlags.AlwaysClamp);
@@ -94,7 +96,7 @@ public unsafe class WeaponDetailInfo : ModalInfo
         }
 
         if (refresh)
-            RefreshWeaponParameters((WeaponDetailModalPresenter*)modal.NativePtr, level, upgradeCount);
+            RefreshWeaponParameters(weaponDetailModal, level, upgradeCount);
 
         ImGui.End();
     }

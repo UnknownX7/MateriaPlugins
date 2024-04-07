@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
@@ -18,6 +19,7 @@ public unsafe class Repeater : IMateriaPlugin
     private const int staminaRepeatDelayMs = 10 * 60_000;
     private bool draw = false;
     private bool repeating = false;
+    private bool useSpecialSkills = false;
     private readonly Stopwatch staminaRepeatTimer = new();
 
     public Repeater(PluginServiceManager pluginServiceManager)
@@ -29,7 +31,7 @@ public unsafe class Repeater : IMateriaPlugin
 
     public void Update()
     {
-        if (!repeating || BattleSystem.Instance is not { } battleSystem) return;
+        if (!repeating || BattleSystem.Instance is not { } battleSystem || BattleHUD.Instance is not { } battleHUD) return;
 
         if (battleSystem.IsDefeated)
         {
@@ -37,16 +39,38 @@ public unsafe class Repeater : IMateriaPlugin
             return;
         }
 
-        if (ModalManager.Instance is not { } modalManager) return;
-
-        if (modalManager.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
+        if (ModalManager.Instance is { } modalManager)
         {
-            GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
-            staminaRepeatTimer.Restart();
+            if (modalManager.CurrentModal is { } currentModal && Il2CppType<IBattleResultModalPresenter>.IsAssignableFrom(currentModal.NativePtr))
+            {
+                GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
+                staminaRepeatTimer.Restart();
+                return;
+            }
+            else if (modalManager.GetCurrentModal<StaminaRecoverModal>() is { } staminaRecoverModal && staminaRepeatTimer is { IsRunning: true, ElapsedMilliseconds: > staminaRepeatDelayMs })
+            {
+                GameInterop.TapButton(staminaRecoverModal.NativePtr->modalCloseButton);
+                return;
+            }
         }
-        else if (modalManager.GetCurrentModal<StaminaRecoverModal>() is { } staminaRecoverModal && staminaRepeatTimer is { IsRunning: true, ElapsedMilliseconds: > staminaRepeatDelayMs })
+
+        if (!useSpecialSkills) return;
+
+        foreach (var p in battleHUD.NativePtr->characterStatusManagers->PtrEnumerable
+            .Where(p => p.ptr->hudKind is CharacterStatusManager.HudKind.Player or CharacterStatusManager.HudKind.Friend)
+            .SelectMany(p => p.ptr->statusGaugePool->PtrEnumerable))
         {
-            GameInterop.TapButton(staminaRecoverModal.NativePtr->modalCloseButton);
+            if (!Il2CppType<PlayerStatusPresenter>.Is(p.ptr, out var playerStatusPresenter)) continue;
+            if (GameInterop.IsGameObjectActive(playerStatusPresenter->limitBreakButtonPresenter) && playerStatusPresenter->limitBreakButtonPresenter->stateMachine->currentKey->GetValue() == SpecialSkillButtonPresenter.Status.Active)
+            {
+                GameInterop.TapButton(playerStatusPresenter->limitBreakButtonPresenter->button);
+                break;
+            }
+            else if (GameInterop.IsGameObjectActive(playerStatusPresenter->summonSkillButtonPresenter) && playerStatusPresenter->summonSkillButtonPresenter->stateMachine->currentKey->GetValue() == SpecialSkillButtonPresenter.Status.Active)
+            {
+                GameInterop.TapButton(playerStatusPresenter->summonSkillButtonPresenter->button);
+                break;
+            }
         }
     }
 
@@ -58,9 +82,10 @@ public unsafe class Repeater : IMateriaPlugin
             return;
         }
 
-        ImGui.Begin("Repeater", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoDecoration);
-        if (ImGui.Checkbox("##Auto", ref repeating))
+        ImGui.Begin("Repeater", ref draw, ImGuiWindowFlags.AlwaysAutoResize);
+        if (ImGui.Checkbox("Repeat", ref repeating))
             staminaRepeatTimer.Restart();
+        ImGui.Checkbox("Use Special Skills", ref useSpecialSkills);
         ImGui.End();
     }
 }
