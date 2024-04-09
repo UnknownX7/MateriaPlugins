@@ -104,9 +104,6 @@ public unsafe class WeaponDetailInfo : ModalInfo
     [GameSymbol("Command.OutGame.Weapon.WeaponDetailModalPresenter$$RefreshParameter")]
     private static delegate* unmanaged<WeaponDetailModalPresenter*, WeaponWork.WeaponStore*, nint, void> weaponDetailModalRefreshParameter;
 
-    [GameSymbol("Command.Work.WeaponWork$$ForkMasterWeaponInfoByLevel")]
-    private static delegate* unmanaged<WeaponWork*, long, long, RarityType, WeaponUpgradeType, long, int, nint, WeaponWork.WeaponStore*> getWeaponStore;
-
     private static void RefreshWeaponParameters(WeaponDetailModalPresenter* modal, int lv, int upgrade)
     {
         var id = ((WeaponWork.WeaponStore*)modal->currentWeaponInfo)->masterWeapon->id;
@@ -116,6 +113,6 @@ public unsafe class WeaponDetailInfo : ModalInfo
             upgradeType = WeaponUpgradeType.Limit;
             upgrade -= 10;
         }
-        GameInterop.RunOnUpdate(() => weaponDetailModalRefreshParameter(modal, getWeaponStore(WorkManager.NativePtr->weapon, id, lv, RarityType.Ssr, upgradeType, Math.Max((lv - 1) / 10 - 1, 0), upgrade, 0), 0));
+        GameInterop.RunOnUpdate(() => weaponDetailModalRefreshParameter(modal, WorkManager.GetWeaponStore(id, lv, RarityType.Ssr, upgradeType, Math.Max((lv - 1) / 10 - 1, 0), upgrade), 0));
     }
 }
