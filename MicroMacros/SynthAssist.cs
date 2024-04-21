@@ -75,7 +75,7 @@ public unsafe class SynthAssist : IMicroMacro
                 {
                     repeatedCraft = GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->view->repeatCraftButton);
                     if (repeatedCraft)
-                        waitMs = 500;
+                        waitMs = 750;
                     return;
                 }
                 else
