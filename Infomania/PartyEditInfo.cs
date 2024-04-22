@@ -41,6 +41,7 @@ public class CalculationInfo
     public int magicalBaseDamage;
     public int hybridBaseDamage;
     public int heal;
+    public int criticalCoefficient;
     public Multiplier physicalMultiplier;
     public Multiplier magicalMultiplier;
     public Multiplier limitBreakMultiplier;
@@ -130,7 +131,8 @@ public unsafe class PartyEditInfo : ScreenInfo
             physicalBaseDamage = CalcAllyBaseDamage(characterInfo->totalStatus->physicalAttack, 100),
             magicalBaseDamage = CalcAllyBaseDamage(characterInfo->totalStatus->magicalAttack, 100),
             hybridBaseDamage = CalcAllyBaseDamage((characterInfo->totalStatus->physicalAttack + characterInfo->totalStatus->magicalAttack) / 2, 100),
-            heal = characterInfo->totalStatus->healingPower
+            heal = characterInfo->totalStatus->healingPower,
+            criticalCoefficient = characterInfo->totalStatus->criticalDamageMagnificationPermil
         };
 
         foreach (var p in characterInfo->passiveSkillEffectInfos->PtrEnumerable)
@@ -188,14 +190,14 @@ public unsafe class PartyEditInfo : ScreenInfo
             DrawCalculatedDamage(SkillSlotType.MainWeapon, characterInfo->mainWeaponInfo0->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
         if (characterInfo->mainWeaponInfo1 != null)
             DrawCalculatedDamage(SkillSlotType.AbilityWeapon, characterInfo->mainWeaponInfo1->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
+        if (characterInfo->specialSkillInfo != null)
+            DrawCalculatedDamage(characterInfo->specialSkillInfo->specialSkillType == SkillSpecialType.LimitBreak ? SkillSlotType.LimitBreak : SkillSlotType.Summon, characterInfo->specialSkillInfo->baseSkillInfo, null, info);
         if (characterInfo->materiaInfo0 != null)
             DrawCalculatedDamage(SkillSlotType.Materia1, characterInfo->materiaInfo0->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo0->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot0) ? characterInfo->mainWeaponInfo0->materiaSupportSlot0 : null, info);
         if (characterInfo->materiaInfo1 != null)
             DrawCalculatedDamage(SkillSlotType.Materia2, characterInfo->materiaInfo1->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo1->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot1) ? characterInfo->mainWeaponInfo0->materiaSupportSlot1 : null, info);
         if (characterInfo->materiaInfo2 != null)
             DrawCalculatedDamage(SkillSlotType.Materia3, characterInfo->materiaInfo2->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo2->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot2) ? characterInfo->mainWeaponInfo0->materiaSupportSlot2 : null, info);
-        if (characterInfo->specialSkillInfo != null)
-            DrawCalculatedDamage(characterInfo->specialSkillInfo->specialSkillType == SkillSpecialType.LimitBreak ? SkillSlotType.LimitBreak : SkillSlotType.Summon, characterInfo->specialSkillInfo->baseSkillInfo, null, info);
 
         ImGui.Spacing();
         ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
@@ -268,6 +270,8 @@ public unsafe class PartyEditInfo : ScreenInfo
                 {
                     case SkillAdditionalType.DamageRateChange:
                         conditionalCoefficient = conditionalCoefficient * skillChangeEffectInfo->additiveValue / 1000;
+                        if (p.ptr->skillEffectInfo->skillTriggerType == SkillTriggerType.CriticalHit)
+                            conditionalCoefficient = conditionalCoefficient * calculationInfo.criticalCoefficient / 1000;
                         break;
                 }
             }
@@ -294,19 +298,19 @@ public unsafe class PartyEditInfo : ScreenInfo
             switch (skillDamageInfo->skillAttackType)
             {
                 case SkillAttackType.Physical:
-                    damageType = "Phys.";
+                    damageType = "Phys";
                     baseDamage = calculationInfo.physicalBaseDamage;
                     passiveMultiplier = calculationInfo.physicalMultiplier;
                     materiaMultiplier = materiaDamageMultiplier;
                     break;
                 case SkillAttackType.Magical:
-                    damageType = "Mag.";
+                    damageType = "Mag";
                     baseDamage = calculationInfo.magicalBaseDamage;
                     passiveMultiplier = calculationInfo.magicalMultiplier;
                     materiaMultiplier = materiaDamageMultiplier;
                     break;
                 case SkillAttackType.Both:
-                    damageType = "Phys./Mag.";
+                    damageType = "Phys/Mag";
                     baseDamage = calculationInfo.hybridBaseDamage;
                     passiveMultiplier = (calculationInfo.physicalMultiplier + calculationInfo.magicalMultiplier) / 2;
                     materiaMultiplier = materiaDamageMultiplier;
