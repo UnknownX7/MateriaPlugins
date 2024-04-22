@@ -200,8 +200,8 @@ public unsafe class PartyEditInfo : ScreenInfo
             DrawCalculatedDamage(SkillSlotType.Materia3, characterInfo->materiaInfo2->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo2->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot2) ? characterInfo->mainWeaponInfo0->materiaSupportSlot2 : null, info);
 
         ImGui.Spacing();
-        ImGui.TextUnformatted($"Phys. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
-        ImGui.TextUnformatted($"Mag. Res.: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
+        ImGui.TextUnformatted($"P.Res: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
+        ImGui.TextUnformatted($"M.Res: {CalcAllyDamageReduction(characterInfo->totalStatus->magicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->magicalDefence, 0)} HP)");
     }
 
     public static void DrawStats(PartyCharacterInfo*[] characterInfos)
@@ -298,25 +298,31 @@ public unsafe class PartyEditInfo : ScreenInfo
             switch (skillDamageInfo->skillAttackType)
             {
                 case SkillAttackType.Physical:
-                    damageType = "Phys";
+                    damageType = "P.";
                     baseDamage = calculationInfo.physicalBaseDamage;
                     passiveMultiplier = calculationInfo.physicalMultiplier;
                     materiaMultiplier = materiaDamageMultiplier;
                     break;
                 case SkillAttackType.Magical:
-                    damageType = "Mag";
+                    damageType = "M.";
                     baseDamage = calculationInfo.magicalBaseDamage;
                     passiveMultiplier = calculationInfo.magicalMultiplier;
                     materiaMultiplier = materiaDamageMultiplier;
                     break;
                 case SkillAttackType.Both:
-                    damageType = "Phys/Mag";
+                    damageType = "P./M.";
                     baseDamage = calculationInfo.hybridBaseDamage;
                     passiveMultiplier = (calculationInfo.physicalMultiplier + calculationInfo.magicalMultiplier) / 2;
                     materiaMultiplier = materiaDamageMultiplier;
                     break;
                 case SkillAttackType.Heal:
-                    damageType = "Heal";
+                    damageType = baseSkillInfo->baseAttackType switch
+                    {
+                        SkillBaseAttackType.Physical => "P.Heal",
+                        SkillBaseAttackType.Magical => "M.Heal",
+                        SkillBaseAttackType.Both => "P./M.Heal",
+                        _ => "? Heal"
+                    };
                     heal = true;
                     baseDamage = calculationInfo.heal;
                     passiveMultiplier = calculationInfo.healMultiplier;
@@ -369,9 +375,9 @@ public unsafe class PartyEditInfo : ScreenInfo
             if (additionalAmount != expectedAmount)
                 additionalInfo = $" ({additionalAmount}*)";
 
-            ImGui.TextUnformatted(GetSlotName(skillSlotType));
+            ImGui.TextColored(new Vector4(0.75f), GetSlotName(skillSlotType));
             ImGui.SameLine();
-            ImGui.TextColored(color, $"{expectedAmount}{additionalInfo} {damageType} {elementText}");
+            ImGui.TextColored(color, $"{expectedAmount}{additionalInfo} {damageType}{elementText}");
             break;
         }
     }
@@ -385,8 +391,8 @@ public unsafe class PartyEditInfo : ScreenInfo
         SkillSlotType.Materia1 => "1:",
         SkillSlotType.Materia2 => "2:",
         SkillSlotType.Materia3 => "3:",
-        SkillSlotType.LimitBreak => "S:",
-        SkillSlotType.Summon => "S:",
+        SkillSlotType.LimitBreak => "L:",
+        SkillSlotType.Summon => "L:",
         _ => "?:"
     };
 
