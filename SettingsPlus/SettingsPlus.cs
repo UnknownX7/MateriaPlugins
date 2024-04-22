@@ -48,7 +48,11 @@ public unsafe class SettingsPlus : IMateriaPlugin
         if (Config.DisableCharacterParts)
             AdequatelyWeaponMedalItemHook?.Enable();
         if (Config.EnableBetterWeaponNotificationIcon)
+        {
             GridWeaponSelectModelCtorHook?.Enable();
+            CanEvolutionHighwindKeyItemHook?.Enable();
+            HighwindKeyItemSelectUpdateAllModelHook?.Enable();
+        }
         if (Config.DisableHiddenData)
         {
             AnotherDungeonBossCellModelCtorHook?.Enable();
@@ -192,13 +196,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         ImGuiEx.SetItemTooltip("You can delete a party to reset its name");
 
         b = Config.EnableBetterWeaponNotificationIcon;
-        if (ImGui.Checkbox("Enable Better Weapon Notif. Icon", ref b))
+        if (ImGui.Checkbox("Enable Better Enhance Notif. Icon", ref b))
         {
             GridWeaponSelectModelCtorHook?.Toggle();
+            CanEvolutionHighwindKeyItemHook?.Toggle();
+            HighwindKeyItemSelectUpdateAllModelHook?.Toggle();
             Config.EnableBetterWeaponNotificationIcon = b;
             Config.Save();
         }
-        ImGuiEx.SetItemTooltip("Does not consider character specific parts when displaying if a weapon\ncan be overboosted and only displays the notification icon if it can");
+        ImGuiEx.SetItemTooltip("Does not consider character specific parts when displaying if a weapon\ncan be overboosted and only displays the notification icon if it can.\nAlso disables the overboost notification on Highwind collection items");
 
         b = Config.DisableHiddenData;
         if (ImGui.Checkbox("Reveal Hidden Dungeon Bosses", ref b))
@@ -296,5 +302,24 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
 
         GridWeaponSelectModelCtorHook!.Original(gridWeaponSelectModel, index, info, selectEnable, equipCharacter, isSelected, isSelectAndEquipment, isEventBonusActive, isDisplayEquipBadge, isShowEnhanceButton, isNew, showEnhanceNotice, isDisplayWeapon, filterBonusEventBaseId, method);
+    }
+
+    [GameSymbol("Command.OutGame.Highwind.HighwindTopScreenModel$$CanEvolutionHighwindKeyItem", EnableHook = false)]
+    private static IMateriaHook<HasKeyItemEvolutionItemDelegate>? CanEvolutionHighwindKeyItemHook;
+    private static CBool CanEvolutionHighwindKeyItemDetour(nint o, nint method) => false;
+
+    private delegate CBool HasKeyItemEvolutionItemDelegate(nint o, nint method);
+    [GameSymbol("Command.OutGame.Highwind.HighwindUtility$$HasKeyItemEvolutionItem_1", EnableHook = false)]
+    private static IMateriaHook<HasKeyItemEvolutionItemDelegate>? HasKeyItemEvolutionItemHook;
+    private static CBool HasKeyItemEvolutionItemDetour(nint o, nint method) => false;
+
+    private delegate void HighwindKeyItemSelectUpdateAllModelDelegate(nint o, nint method);
+    [GameSymbol("Command.OutGame.GridHighwindKeyItemSelect$$UpdateAllModel", EnableHook = false)]
+    private static IMateriaHook<HighwindKeyItemSelectUpdateAllModelDelegate>? HighwindKeyItemSelectUpdateAllModelHook;
+    private static void HighwindKeyItemSelectUpdateAllModelDetour(nint o, nint method)
+    {
+        HasKeyItemEvolutionItemHook?.Enable();
+        HighwindKeyItemSelectUpdateAllModelHook!.Original(o, method);
+        HasKeyItemEvolutionItemHook?.Disable();
     }
 }
