@@ -12,4 +12,5 @@ public class Configuration : PluginConfiguration
     public bool EnableSkipBattleCutscenes { get; set; }
     public bool EnableRememberLastSelectedMateriaRecipe { get; set; }
     public bool DisableRenamedRecommendedParty { get; set; }
+    public bool DisableContinueModal { get; set; }
 }

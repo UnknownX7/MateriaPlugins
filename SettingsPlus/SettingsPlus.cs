@@ -74,6 +74,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
         var currentModal = ModalManager.Instance?.CurrentModal;
         switch (currentModal?.Type.FullName)
         {
+            case "Command.Battle.ContinueModalPresenter" when Config.DisableContinueModal:
+                var continueModal = (ContinueModalPresenter*)currentModal.NativePtr;
+                GameInterop.TapButton(continueModal->consumptionStoneField->cancelButton);
+                return;
             case null:
                 break;
             default:
@@ -194,6 +198,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
         ImGuiEx.SetItemTooltip("You can delete a party to reset its name");
+
+        b = Config.DisableContinueModal;
+        if (ImGui.Checkbox("Disable Continuing Failed Battles", ref b))
+        {
+            Config.DisableContinueModal = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Automatically retires when failing a battle");
 
         b = Config.EnableBetterWeaponNotificationIcon;
         if (ImGui.Checkbox("Enable Better Enhance Notif. Icon", ref b))
