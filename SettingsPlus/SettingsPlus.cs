@@ -118,17 +118,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
                 var partySelect = (PartySelectScreenPresenterBase<PartySelectScreenSetupParameter>*)currentScreen.NativePtr;
                 var partyInfo = partySelect->partySelect->selectPartyInfo;
                 if (!partySelect->view->copyButton->IsActive())
-                {
-                    if (partyInfo != null && partyInfo->userPartyName->stringLength > 0 && !partyInfo->userPartyName->Equals(partyInfo->defaultPartyName))
-                    {
-                        if (partySelect->view->recommendFormationButton->IsActive())
-                            partySelect->view->recommendFormationButton->SetActive(false);
-                    }
-                    else if (!partySelect->view->recommendFormationButton->IsActive())
-                    {
-                        partySelect->view->recommendFormationButton->SetActive(true);
-                    }
-                }
+                    partySelect->view->recommendFormationButton->ChangeActive(partyInfo == null || partyInfo->userPartyName->stringLength == 0 || partyInfo->userPartyName->Equals(partyInfo->defaultPartyName));
+                break;
+            case "Command.OutGame.Party.PartyEditTopScreenPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.Party.PartyEditTopScreenMultiPresenter" when Config.DisableRenamedRecommendedParty:
+            case "Command.OutGame.Party.MultiAreaBattlePartyEditPresenter" when Config.DisableRenamedRecommendedParty:
+                if (!Il2CppType<PartyEditTopScreenPresenterBase>.Is(currentScreen.NativePtr, out var partyEdit)) break;
+                var party = partyEdit->currentPartyInfo;
+                partyEdit->statusThumbnailPresenter->recommendButton->ChangeActive(party == null || party->userPartyName->stringLength == 0 || party->userPartyName->Equals(party->defaultPartyName));
                 break;
         }
 
