@@ -281,6 +281,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static nint SetEnemyInfoAsyncDetour(nint retstr, nint enemyThumbnail, nint token, nint enemyInfo, CBool isUnknown, CBool isBoss, int thumbnailTapType, nint method) =>
         SetEnemyInfoAsyncHook!.Original(retstr, enemyThumbnail, token, enemyInfo, false, isBoss, thumbnailTapType, method);
 
+    // TODO: Inlining broke this
     private static long lastMateriaRecipeId;
     private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
     [GameSymbol("Command.OutGame.Synthesis.SynthesisSelectScreenSetupParameter$$.ctor", EnableHook = false)]
