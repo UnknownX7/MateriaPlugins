@@ -1,7 +1,5 @@
 ﻿using DiscordRPC;
 using DiscordRPC.Logging;
-using ECGen.Generated;
-using ECGen.Generated.Command;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command.Dungeon;
 using ECGen.Generated.Command.OutGame.MultiBattle;
@@ -75,10 +73,6 @@ public unsafe class RichPresence : IMateriaPlugin
         client.Invoke();
         if (!Config.EnableRichPresence) return;
 
-        var sceneBehaviourManager = GameInterop.GetSingletonMonoBehaviourInstance<SceneBehaviourManager>();
-        if (sceneBehaviourManager == null) return;
-
-        var currentScene = sceneBehaviourManager->currentSceneBehaviour->value;
         var presence = new DiscordRPC.RichPresence();
         if (DungeonSystem.Instance is { } dungeonSystem)
         {
@@ -111,9 +105,9 @@ public unsafe class RichPresence : IMateriaPlugin
                     break;
             }
         }
-        else if (BattleSystem.Instance is { IsBattling: true } battleSystem && Il2CppType<BattleSceneBehaviour>.Is(currentScene, out var battleSceneBehaviour))
+        else if (BattleSystem.Instance is { IsBattling: true } battleSystem && SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is { } battleSceneBehaviour)
         {
-            var battlePlayer = battleSceneBehaviour->battlePlayer;
+            var battlePlayer = battleSceneBehaviour.NativePtr->battlePlayer;
             var wave = battleSystem.NativePtr->waveModel->index->GetValue();
             if (battlePlayer != null && battlePlayer->setupParameter != null && battlePlayer->setupParameter->battleName != null && wave >= 0)
             {
