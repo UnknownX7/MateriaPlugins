@@ -21,7 +21,7 @@ public unsafe class HomeInfo : ScreenInfo
     public override bool Enabled => Infomania.Config.EnableHomeInfo;
     public override Type[] ValidScreens { get; } = [ typeof(HomeTopScreenPresenter) ];
 
-    private bool freeGachaAvailable;
+    private long freeGachaAvailable;
 
     public override void Activate() => freeGachaAvailable = GetFreeGachaAvailable();
 
@@ -43,8 +43,12 @@ public unsafe class HomeInfo : ScreenInfo
 
         Infomania.BeginInfoWindow("HomeInfo");
 
-        if (freeGachaAvailable)
+        if (freeGachaAvailable != 0)
+        {
             ImGui.TextColored(new Vector4(1, 1, 0, 1), "FREE DRAW AVAILABLE!!!");
+            if (ImGuiEx.IsItemReleased())
+                ScreenManager.TransitionAsync(TransitionType.Gacha, freeGachaAvailable);
+        }
 
         var maintenanceTimer = GetTimeUntilMaintenance();
         if (maintenanceTimer >= TimeSpan.Zero)
@@ -55,17 +59,31 @@ public unsafe class HomeInfo : ScreenInfo
         }
 
         DrawResetTimer("Dailies", 4, 12, IsMissionBonusObtained(200001)); // Daily Mission Reset
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Mission, 200001);
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Shop, 101002);
         //DrawResetTimer("Guild Energy", 18, 0);
         DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300001)); // Weekly Mission Reset
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Mission, 300001);
         DrawResetTimer("Weekly Shop", 11, 0);
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Shop, 205002);
         DrawResetTimer("Monthly Shop", 12, 0);
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Shop, 205001);
 
         ImGui.Spacing();
         ImGui.Spacing();
 
         ImGui.TextColored(remaining == 0 ? green : red, $"Daily Quests:      {total - remaining}/{total}");
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Home, (int)HomeContentState.SoloBattleDailyQuest);
         ImGui.TextColored(remainingPremiumQuests == 0 ? green : red, $"Premium Quests:    {premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount - remainingPremiumQuests}/{premiumQuestGroupCategory->masterSoloAreaGroupCategory->resetMaxWinCount}");
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.AreaSoloBattleTop, (int)AreaGroupCategoryType.Extra);
 
         ImGui.Spacing();
         ImGui.Spacing();
@@ -74,8 +92,14 @@ public unsafe class HomeInfo : ScreenInfo
         ImGui.TextUnformatted($"Stamina To Lv.: {(expUntil + 9) / 10}");
         var craftTimer = GetTimeUntilCraftFinished();
         if (craftTimer >= TimeSpan.Zero)
+        {
             DrawTimer("Crafting", craftTimer);
+            if (ImGuiEx.IsItemReleased())
+                ScreenManager.TransitionAsync(TransitionType.CraftTop);
+        }
         ImGui.TextUnformatted($"Chocobo: {GetHighestChocoboShopRank()}");
+        if (ImGuiEx.IsItemReleased())
+            ScreenManager.TransitionAsync(TransitionType.Shop, 207001);
 
         ImGui.End();
     }
@@ -147,7 +171,7 @@ public unsafe class HomeInfo : ScreenInfo
         .Where(p => (PlatformType)p.ptr->targetPlatformType is PlatformType.Any or PlatformType.Steam)
         .Max(p => p.ptr->startDatetime) - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
-    private static bool GetFreeGachaAvailable()
+    private static long GetFreeGachaAvailable()
     {
         var gachas = (Unmanaged_Array<GachaWork.GachaStore>*)WorkManager.NativePtr->gacha->gachaGroupStores->values->PtrEnumerable.First(p => p.ptr->masterGachaGroup->id == 3).ptr->gachaInfos;
         foreach (var p in gachas->PtrEnumerable)
@@ -165,9 +189,9 @@ public unsafe class HomeInfo : ScreenInfo
                 if (step->masterGachaStep->consumptionCount > 0) continue;
 
                 var isDrewMaxCount = (delegate* unmanaged<GachaWork.GachaStepGroupStore*, nint, CBool>)p2.ptr->@class->vtable.get_IsDrewMaxCount.methodPtr;
-                if (!isDrewMaxCount(p2, 0)) return true;
+                if (!isDrewMaxCount(p2, 0)) return p.ptr->masterGacha->id;
             }
         }
-        return false;
+        return 0;
     }
 }
