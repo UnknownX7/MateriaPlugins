@@ -4,6 +4,7 @@ using Materia;
 using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
+using Materia.Utilities;
 using System;
 using System.Linq;
 using System.Numerics;
@@ -16,8 +17,12 @@ using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.System.Collections.Generic;
+using ECGen.Generated.Command.OutGame.MultiBattle;
+using ECGen.Generated.Command.OutGame.Event;
+using ECGen.Generated.Command.UI;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
+using SceneBehaviourManager = Materia.Game.SceneBehaviourManager;
 using ScreenManager = Materia.Game.ScreenManager;
 using WorkManager = Materia.Game.WorkManager;
 
@@ -33,6 +38,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     private bool draw = false;
     private readonly int[] res = [ 960, 540 ];
+    private (TransitionType TransitionType, long Id) battleTransitionInfo;
 
     public SettingsPlus(PluginServiceManager pluginServiceManager)
     {
@@ -67,6 +73,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     public void Update()
     {
         UpdateUISettings();
+        UpdateBattleTransitionInfo();
     }
 
     public void UpdateUISettings()
@@ -142,6 +149,144 @@ public unsafe class SettingsPlus : IMateriaPlugin
                         break;
                 }
             }
+        }
+    }
+
+    private void UpdateBattleTransitionInfo()
+    {
+        if (!Config.EnableBattleReselection) return;
+
+        if (battleTransitionInfo.Id == 0)
+        {
+            if (SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } battleSceneBehaviour) return;
+
+            var setupParameter = battleSceneBehaviour.NativePtr->@class->staticFields->NextSetupParameter;
+            if (setupParameter == null) return;
+
+            if (setupParameter->areaBattleId != 0)
+                battleTransitionInfo = (!setupParameter->isMulti ? TransitionType.AreaSoloBattle : TransitionType.AreaMultiBattle, setupParameter->areaBattleId);
+            else if (setupParameter->eventAreaBattleId != 0)
+                battleTransitionInfo = (!setupParameter->isMulti ? TransitionType.EventSoloBattle : TransitionType.Event, setupParameter->eventAreaBattleId);
+            else
+                battleTransitionInfo.Id = 1;
+        }
+        else
+        {
+            if (SceneBehaviourManager.GetCurrentSceneBehaviour<OutGameSceneBehaviour>() == null || ScreenManager.Instance is not { InTransition: false } screenManager) return;
+
+            var isValid = false;
+            switch (battleTransitionInfo.TransitionType)
+            {
+                case TransitionType.AreaSoloBattle:
+                {
+                    var store = WorkManager.GetSoloAreaBattleStore(battleTransitionInfo.Id);
+                    if (store == null) break;
+
+                    if (store->masterSoloAreaBattle->resetMaxWinCount > 0)
+                    {
+                        var f = (delegate* unmanaged<void*, Il2CppMethodInfo*, long>)store->@class->vtable.get_RemainingChallengeCount.methodPtr;
+                        isValid = f(store, store->@class->vtable.get_RemainingChallengeCount.method) > 0;
+                    }
+                    else
+                    {
+                        isValid = true;
+                    }
+                    break;
+                }
+                case TransitionType.AreaMultiBattle:
+                {
+                    var store = WorkManager.GetMultiAreaBattleStore(battleTransitionInfo.Id);
+                    if (store == null) break;
+
+                    if (store->masterMultiAreaBattle->resetMaxWinCount > 0)
+                    {
+                        var f = (delegate* unmanaged<void*, Il2CppMethodInfo*, long>)store->@class->vtable.get_RemainingChallengeCount.methodPtr;
+                        isValid = f(store, store->@class->vtable.get_RemainingChallengeCount.method) > 0;
+                    }
+                    else
+                    {
+                        isValid = true;
+                    }
+                    break;
+                }
+                case TransitionType.EventSoloBattle:
+                {
+                    var store = WorkManager.GetEventSoloBattleStore(battleTransitionInfo.Id);
+                    if (store == null) break;
+
+                    if (store->masterEventSoloBattle->challengeCountMax > 0)
+                    {
+                        var f = (delegate* unmanaged<void*, Il2CppMethodInfo*, long>)store->@class->vtable.get_RemainingChallengeCount.methodPtr;
+                        isValid = f(store, store->@class->vtable.get_RemainingChallengeCount.method) > 0;
+                    }
+                    else
+                    {
+                        isValid = true;
+                    }
+                    break;
+                }
+                case TransitionType.Event:
+                {
+                    var store = WorkManager.GetEventMultiBattleStore(battleTransitionInfo.Id);
+                    if (store == null) break;
+
+                    if (store->masterEventMultiBattle->challengeCountMax > 0)
+                    {
+                        var f = (delegate* unmanaged<void*, Il2CppMethodInfo*, long>)store->@class->vtable.get_RemainingChallengeCount.methodPtr;
+                        isValid = f(store, store->@class->vtable.get_RemainingChallengeCount.method) > 0;
+                    }
+                    else
+                    {
+                        isValid = true;
+                    }
+                    break;
+                }
+                case TransitionType.EventMultiBattle:
+                    isValid = true;
+                    break;
+            }
+
+            if (isValid && screenManager.CurrentScreen is { } screen && !Il2CppType<MultiAreaBattleMatchingRoomScreenPresenter>.IsAssignableFrom(screen.NativePtr))
+            {
+                switch (battleTransitionInfo.TransitionType)
+                {
+                    case TransitionType.EventMultiBattle:
+                        TransitionToEventMultiBattle(screen.NativePtr, battleTransitionInfo.Id);
+                        break;
+                    case TransitionType.Event:
+                        if (screen.NativePtr->@class->parent != null && screen.NativePtr->@class->parent->GetName() == "EventAreaScreenPresenterBase`1")
+                            goto case TransitionType.EventMultiBattle;
+
+                        var eventMultiBattleStore = WorkManager.GetEventMultiBattleStore(battleTransitionInfo.Id);
+                        ScreenManager.TransitionAsync(TransitionType.Event, eventMultiBattleStore->masterEventMultiBattle->eventBaseId);
+                        battleTransitionInfo.TransitionType = TransitionType.EventMultiBattle;
+                        return;
+                    default:
+                        ScreenManager.TransitionAsync(battleTransitionInfo.TransitionType, battleTransitionInfo.Id);
+                        break;
+                }
+            }
+
+            battleTransitionInfo = default;
+        }
+    }
+
+    private static void TransitionToEventMultiBattle(ScreenBase<ScreenSetupParameter>* screen, long id)
+    {
+        var parent = screen->@class->parent;
+        if (parent == null || parent->GetName() != "EventAreaScreenPresenterBase`1") return;
+
+        for (int i = 0; i < parent->methodCount; i++)
+        {
+            var method = parent->methods[i];
+            if (Util.ReadCString(method->name) != "GoToMultiPartyScreen") continue;
+
+            var eventMultiBattleStore = WorkManager.GetEventMultiBattleStore(id);
+            if (eventMultiBattleStore == null) return;
+
+            var model = new EventAreaListModel { eventMultiBattleInfo = (IEventMultiBattleInfo*)eventMultiBattleStore };
+            var f = (delegate* unmanaged<void*, EventAreaListModel*, Il2CppMethodInfo*, void>)method->methodPtr;
+            f(screen, &model, method);
         }
     }
 
@@ -239,6 +384,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
         ImGuiEx.SetItemTooltip("Does not currently work with certain recipes!");
+
+        b = Config.EnableBattleReselection;
+        if (ImGui.Checkbox("Auto Select Previous Battle", ref b))
+        {
+            Config.EnableBattleReselection = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
         ImGui.End();
     }
