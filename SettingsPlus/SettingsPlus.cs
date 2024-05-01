@@ -38,14 +38,18 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     private bool draw = false;
     private readonly int[] res = [ 960, 540 ];
+
     private (TransitionType TransitionType, long Id) battleTransitionInfo;
+
+    private static Il2CppObject<PartyInfo>? cachedPartyInfo;
+    private static long cachedPartyGroupId;
 
     public SettingsPlus(PluginServiceManager pluginServiceManager)
     {
         pluginServiceManager.EventHandler.Update += Update;
         pluginServiceManager.EventHandler.Draw += Draw;
         pluginServiceManager.EventHandler.ToggleMenu = () => draw ^= true;
-        pluginServiceManager.EventHandler.Dispose += Config.Save;
+        pluginServiceManager.EventHandler.Dispose += Dispose;
 
         if (Config.EnableStaticCamera)
             SetupStandardCameraHook?.Enable();
@@ -66,6 +70,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         if (Config.EnableRememberLastSelectedMateriaRecipe)
             SynthesisSelectScreenSetupParameterCtorHook?.Enable();
+        if (Config.EnableRememberStoryParty)
+            CreateRecommendedStoryPartyInfoHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -74,6 +80,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     {
         UpdateUISettings();
         UpdateBattleTransitionInfo();
+        UpdateStoredStoryPartyInfo();
     }
 
     public void UpdateUISettings()
@@ -290,6 +297,18 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
     }
 
+    private static void UpdateStoredStoryPartyInfo()
+    {
+        if (!Config.EnableRememberStoryParty || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } battleSceneBehaviour) return;
+
+        var setupParameter = battleSceneBehaviour.NativePtr->@class->staticFields->NextSetupParameter;
+        if (setupParameter->episodeId == 0 || setupParameter->storyModeType != StoryModeType.StoryParty || !Il2CppType<PartyWork.PartyStore>.Is(setupParameter->partyInfo, out var partyStore) || partyStore->userParty->combatPower == 0 || (cachedPartyInfo != null && cachedPartyInfo.Ptr->combatPower == partyStore->userParty->combatPower)) return;
+
+        cachedPartyInfo?.Dispose();
+        cachedPartyInfo = new Il2CppObject<PartyInfo>(partyStoreToInfo(partyStore, 0));
+        cachedPartyGroupId = WorkManager.GetStoryEpisodeStore(setupParameter->episodeId)->masterStoryEpisode->storyPartyCharacterGroupId;
+    }
+
     public void Draw()
     {
         if (!draw) return;
@@ -393,7 +412,21 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
+        b = Config.EnableRememberStoryParty;
+        if (ImGui.Checkbox("Remember Last EXTRA Story Party", ref b))
+        {
+            CreateRecommendedStoryPartyInfoHook?.Toggle();
+            Config.EnableRememberStoryParty = b;
+            Config.Save();
+        }
+
         ImGui.End();
+    }
+
+    public void Dispose()
+    {
+        cachedPartyInfo?.Dispose();
+        Config?.Save();
     }
 
     [GameSymbol("Command.SteamWindowUtility$$SetResolution")]
@@ -485,4 +518,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         HighwindKeyItemSelectUpdateAllModelHook!.Original(o, method);
         HasKeyItemEvolutionItemHook?.Disable();
     }
+
+    [GameSymbol("Command.Work.PartyWork.PartyStore$$Command.Work.IPartyInfo.ToInfo")]
+    private static delegate* unmanaged<PartyWork.PartyStore*, nint, PartyInfo*> partyStoreToInfo;
+
+    private delegate PartyInfo* CreateRecommendedStoryPartyInfoDelegate(IStoryCharacterGroupInfo* storyPartyCharacterGroupInfo, int storyPartyCharacterCount, nint recommendElements, nint registerEnemyElements, nint needNotesTypeSets, int recommendedBaseAttackType, CBool isBossMultiple, nint bossEnemies, CBool isForce, nint method);
+    [GameSymbol("Command.OutGame.Party.PartyUtility$$CreateRecommendStoryPartyInfo_1", EnableHook = false)]
+    private static IMateriaHook<CreateRecommendedStoryPartyInfoDelegate>? CreateRecommendedStoryPartyInfoHook;
+    private static PartyInfo* CreateRecommendedStoryPartyInfoDetour(IStoryCharacterGroupInfo* storyPartyCharacterGroupInfo, int storyPartyCharacterCount, nint recommendElements, nint registerEnemyElements, nint needNotesTypeSets, int recommendedBaseAttackType, CBool isBossMultiple, nint bossEnemies, CBool isForce, nint method) =>
+        Il2CppType<StoryWork.StoryCharacterGroupStore>.Is(storyPartyCharacterGroupInfo, out var storyCharacterGroupStore) && storyCharacterGroupStore->storyCharacterGroupId == cachedPartyGroupId && cachedPartyInfo != null
+            ? cachedPartyInfo
+            : CreateRecommendedStoryPartyInfoHook!.Original(storyPartyCharacterGroupInfo, storyPartyCharacterCount, recommendElements, registerEnemyElements, needNotesTypeSets, recommendedBaseAttackType, isBossMultiple, bossEnemies, isForce, method);
 }
