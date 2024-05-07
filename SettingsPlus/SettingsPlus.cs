@@ -179,7 +179,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         else
         {
-            if (SceneBehaviourManager.GetCurrentSceneBehaviour<OutGameSceneBehaviour>() == null || ScreenManager.Instance is not { InTransition: false } screenManager) return;
+            if (SceneBehaviourManager.GetCurrentSceneBehaviour<OutGameSceneBehaviour>() == null
+                || ScreenManager.Instance is not { InTransition: false } screenManager
+                || screenManager.IsCurrentScreen<MultiAreaBattleMatchingRoomScreenPresenter>())
+                return;
 
             var isValid = false;
             switch (battleTransitionInfo.TransitionType)
@@ -253,8 +256,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
                     break;
             }
 
-            if (isValid && screenManager.CurrentScreen is { } screen && !Il2CppType<MultiAreaBattleMatchingRoomScreenPresenter>.IsAssignableFrom(screen.NativePtr))
+            if (isValid && screenManager.CurrentScreen is { } screen)
             {
+                PluginServiceManager.Log.Info($"Transitioning: {battleTransitionInfo}");
+
                 switch (battleTransitionInfo.TransitionType)
                 {
                     case TransitionType.EventMultiBattle:
