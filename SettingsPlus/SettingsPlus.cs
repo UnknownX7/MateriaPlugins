@@ -179,8 +179,11 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         else
         {
-            if (SceneBehaviourManager.GetCurrentSceneBehaviour<OutGameSceneBehaviour>() == null
+            var battleServerProxy = ((BattleServerProxy.StaticFields*)Il2CppType<BattleServerProxy>.NativePtr->staticFields)->instance;
+            if (battleServerProxy == null
+                || SceneBehaviourManager.GetCurrentSceneBehaviour<OutGameSceneBehaviour>() == null
                 || ScreenManager.Instance is not { InTransition: false } screenManager
+                || battleServerProxy->roomStatus->GetValue() != MultiRoomStatus.None
                 || screenManager.IsCurrentScreen<MultiAreaBattleMatchingRoomScreenPresenter>())
                 return;
 
