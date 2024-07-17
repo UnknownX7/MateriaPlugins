@@ -17,7 +17,8 @@ public unsafe class PartySelectInfo : ScreenInfo
         typeof(SoloPartySelectScreenPresenter),
         typeof(StoryPartySelectScreenPresenter),
         typeof(MultiPartySelectScreenPresenter),
-        typeof(MultiAreaBattlePartySelectPresenter)
+        typeof(MultiAreaBattlePartySelectPresenter),
+        typeof(GuildMainBattlePartySelectScreenPresenter)
     ];
 
     public override void Draw(Screen screen)

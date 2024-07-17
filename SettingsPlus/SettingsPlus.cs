@@ -487,10 +487,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
             param->materiaRecipeId = lastMateriaRecipeId;
     }
 
-    private delegate void GridWeaponSelectModelCtorDelegate(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, nint method);
+    private delegate void GridWeaponSelectModelCtorDelegate(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, CBool isDisplayArmouryBadge, CBool isDisplayPickupBadge, int armouryPoint, nint method);
     [GameSymbol("Command.OutGame.GridWeaponSelectModel$$.ctor", EnableHook = false)]
     private static IMateriaHook<GridWeaponSelectModelCtorDelegate>? GridWeaponSelectModelCtorHook;
-    private static void GridWeaponSelectModelCtorDetour(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, nint method)
+    private static void GridWeaponSelectModelCtorDetour(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, CBool isDisplayArmouryBadge, CBool isDisplayPickupBadge, int armouryPoint, nint method)
     {
         if (isShowEnhanceButton)
         {
@@ -505,7 +505,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
             }
         }
 
-        GridWeaponSelectModelCtorHook!.Original(gridWeaponSelectModel, index, info, selectEnable, equipCharacter, isSelected, isSelectAndEquipment, isEventBonusActive, isDisplayEquipBadge, isShowEnhanceButton, isNew, showEnhanceNotice, isDisplayWeapon, filterBonusEventBaseId, method);
+        GridWeaponSelectModelCtorHook!.Original(gridWeaponSelectModel, index, info, selectEnable, equipCharacter, isSelected, isSelectAndEquipment, isEventBonusActive, isDisplayEquipBadge, isShowEnhanceButton, isNew, showEnhanceNotice, isDisplayWeapon, filterBonusEventBaseId, isDisplayArmouryBadge, isDisplayPickupBadge, armouryPoint, method);
     }
 
     [GameSymbol("Command.OutGame.Highwind.HighwindTopScreenModel$$CanEvolutionHighwindKeyItem", EnableHook = false)]
