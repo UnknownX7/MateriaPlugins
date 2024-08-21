@@ -43,10 +43,15 @@ public unsafe class BossDetailInfo : ModalInfo
 
         if (statusParamInfo == null) return;
 
+        var hp = statusParamInfo->hp;
+        var dummyHp = statusParamInfo->dummyHp;
+
         Infomania.BeginInfoWindow("BossDetailInfo");
 
         ImGui.BeginGroup();
-        ImGui.TextUnformatted($"HP: {(statusParamInfo->dummyHp > 0 ? statusParamInfo->dummyHp : statusParamInfo->hp)}");
+        ImGui.TextUnformatted($"HP: {hp}");
+        if (dummyHp > 0 && dummyHp != hp)
+            ImGui.TextColored(new Vector4(0.65f), $"D.HP: {dummyHp}");
         ImGui.TextUnformatted($"PATK: {statusParamInfo->physicalAttack}");
         ImGui.TextUnformatted($"MATK: {statusParamInfo->magicalAttack}");
         ImGui.TextUnformatted($"PDEF: {statusParamInfo->physicalDefence} ({CalcEnemyDamageReduction(statusParamInfo->physicalDefence)}%)");
