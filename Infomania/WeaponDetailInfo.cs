@@ -15,7 +15,7 @@ public unsafe class WeaponDetailInfo : ModalInfo
     public override bool Enabled => Infomania.Config.EnableWeaponDetailInfo;
     public override Type[] ValidModals { get; } = [ typeof(WeaponDetailModalPresenter) ];
 
-    private int level = 90;
+    private int level = 120;
     private int upgradeCount = 0;
 
     public override void Draw(Modal modal)
@@ -106,13 +106,27 @@ public unsafe class WeaponDetailInfo : ModalInfo
 
     private static void RefreshWeaponParameters(WeaponDetailModalPresenter* modal, int lv, int upgrade)
     {
-        var id = ((WeaponWork.WeaponStore*)modal->currentWeaponInfo)->masterWeapon->id;
+        var weaponStore = (WeaponWork.WeaponStore*)modal->currentWeaponInfo;
+        var id = weaponStore->masterWeapon->id;
+        var rarityType = RarityType.None;
         var upgradeType = WeaponUpgradeType.Rank;
-        if (upgrade > 10)
+
+        switch ((WeaponEquipmentType)weaponStore->masterWeapon->weaponEquipmentType)
         {
-            upgradeType = WeaponUpgradeType.Limit;
-            upgrade -= 10;
+            case WeaponEquipmentType.Normal:
+                rarityType = RarityType.Ssr;
+                if (upgrade > 10)
+                {
+                    upgradeType = WeaponUpgradeType.Limit;
+                    upgrade -= 10;
+                }
+                break;
+            case WeaponEquipmentType.Legendary:
+                rarityType = RarityType.Legendary;
+                upgrade = 0;
+                break;
         }
-        GameInterop.RunOnUpdate(() => weaponDetailModalRefreshParameter(modal, WorkManager.GetWeaponStore(id, lv, RarityType.Ssr, upgradeType, Math.Max((lv - 1) / 10 - 1, 0), upgrade), 0));
+
+        GameInterop.RunOnUpdate(() => weaponDetailModalRefreshParameter(modal, WorkManager.GetWeaponStore(id, lv, rarityType, upgradeType, Math.Max((lv - 1) / 10 - 1, 0), upgrade, 0, 0, 0), 0));
     }
 }

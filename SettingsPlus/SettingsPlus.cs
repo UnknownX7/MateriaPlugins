@@ -41,9 +41,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     private (TransitionType TransitionType, long Id) battleTransitionInfo;
 
-    private static Il2CppObject<PartyInfo>? cachedPartyInfo;
-    private static long cachedPartyGroupId;
-
     public SettingsPlus(PluginServiceManager pluginServiceManager)
     {
         pluginServiceManager.EventHandler.Update += Update;
@@ -70,8 +67,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         if (Config.EnableRememberLastSelectedMateriaRecipe)
             SynthesisSelectScreenSetupParameterCtorHook?.Enable();
-        if (Config.EnableRememberStoryParty)
-            CreateRecommendedStoryPartyInfoHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -80,7 +75,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
     {
         UpdateUISettings();
         UpdateBattleTransitionInfo();
-        UpdateStoredStoryPartyInfo();
     }
 
     public void UpdateUISettings()
@@ -305,18 +299,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
     }
 
-    private static void UpdateStoredStoryPartyInfo()
-    {
-        if (!Config.EnableRememberStoryParty || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } battleSceneBehaviour) return;
-
-        var setupParameter = battleSceneBehaviour.NativePtr->@class->staticFields->NextSetupParameter;
-        if (setupParameter->episodeId == 0 || setupParameter->storyModeType != StoryModeType.StoryParty || !Il2CppType<PartyWork.PartyStore>.Is(setupParameter->partyInfo, out var partyStore) || partyStore->userParty->combatPower == 0 || (cachedPartyInfo != null && cachedPartyInfo.Ptr->combatPower == partyStore->userParty->combatPower)) return;
-
-        cachedPartyInfo?.Dispose();
-        cachedPartyInfo = new Il2CppObject<PartyInfo>(partyStoreToInfo(partyStore, 0));
-        cachedPartyGroupId = WorkManager.GetStoryEpisodeStore(setupParameter->episodeId)->masterStoryEpisode->storyPartyCharacterGroupId;
-    }
-
     public void Draw()
     {
         if (!draw) return;
@@ -420,20 +402,11 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
-        b = Config.EnableRememberStoryParty;
-        if (ImGui.Checkbox("Remember Last EXTRA Story Party", ref b))
-        {
-            CreateRecommendedStoryPartyInfoHook?.Toggle();
-            Config.EnableRememberStoryParty = b;
-            Config.Save();
-        }
-
         ImGui.End();
     }
 
     public void Dispose()
     {
-        cachedPartyInfo?.Dispose();
         Config?.Save();
     }
 
@@ -475,7 +448,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static nint SetEnemyInfoAsyncDetour(nint retstr, nint enemyThumbnail, nint token, nint enemyInfo, CBool isUnknown, CBool isBoss, int thumbnailTapType, nint method) =>
         SetEnemyInfoAsyncHook!.Original(retstr, enemyThumbnail, token, enemyInfo, false, isBoss, thumbnailTapType, method);
 
-    // TODO: Inlining broke this
+    // TODO: Inlining sometimes breaks this
     private static long lastMateriaRecipeId;
     private delegate void SynthesisSelectScreenSetupParameterCtorDelegate(SynthesisSelectScreenSetupParameter* param, int selectDataIndex, int synthesisRecipeViewType, nint method);
     [GameSymbol("Command.OutGame.Synthesis.SynthesisSelectScreenSetupParameter$$.ctor", EnableHook = false)]
@@ -492,16 +465,21 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static IMateriaHook<GridWeaponSelectModelCtorDelegate>? GridWeaponSelectModelCtorHook;
     private static void GridWeaponSelectModelCtorDetour(GridWeaponSelectModel* gridWeaponSelectModel, int index, WeaponWork.WeaponStore* info, CBool selectEnable, ICharacterInfo* equipCharacter, CBool isSelected, CBool isSelectAndEquipment, CBool isEventBonusActive, CBool isDisplayEquipBadge, CBool isShowEnhanceButton, CBool isNew, CBool showEnhanceNotice, CBool isDisplayWeapon, long filterBonusEventBaseId, CBool isDisplayArmouryBadge, CBool isDisplayPickupBadge, int armouryPoint, nint method)
     {
-        if (isShowEnhanceButton)
+        if (showEnhanceNotice)
         {
             var medalItem = WorkManager.GetItemStore(info->masterWeapon->weaponMedalItemId);
             if (medalItem != null)
             {
-                if (info->canUpgradeLimit)
-                    info->canUpgradeLimit = medalItem->count >= 200;
-                else if (info->canUpgradeRank)
-                    info->canUpgradeRank = medalItem->count >= 200;
-                isShowEnhanceButton = info->canUpgradeLimit || info->canUpgradeRank;
+                if (info->weaponUpgradeLimit < 20)
+                {
+                    var neededMedals = info->rarityUpMedalCount > 0 ? info->rarityUpMedalCount : 200;
+                    if (neededMedals > 0)
+                        showEnhanceNotice = medalItem->count >= neededMedals;
+                }
+                else
+                {
+                    showEnhanceNotice = false;
+                }
             }
         }
 
@@ -526,15 +504,4 @@ public unsafe class SettingsPlus : IMateriaPlugin
         HighwindKeyItemSelectUpdateAllModelHook!.Original(o, method);
         HasKeyItemEvolutionItemHook?.Disable();
     }
-
-    [GameSymbol("Command.Work.PartyWork.PartyStore$$Command.Work.IPartyInfo.ToInfo")]
-    private static delegate* unmanaged<PartyWork.PartyStore*, nint, PartyInfo*> partyStoreToInfo;
-
-    private delegate PartyInfo* CreateRecommendedStoryPartyInfoDelegate(IStoryCharacterGroupInfo* storyPartyCharacterGroupInfo, int storyPartyCharacterCount, nint recommendElements, nint registerEnemyElements, nint needNotesTypeSets, int recommendedBaseAttackType, CBool isBossMultiple, nint bossEnemies, CBool isForce, nint method);
-    [GameSymbol("Command.OutGame.Party.PartyUtility$$CreateRecommendStoryPartyInfo_1", EnableHook = false)]
-    private static IMateriaHook<CreateRecommendedStoryPartyInfoDelegate>? CreateRecommendedStoryPartyInfoHook;
-    private static PartyInfo* CreateRecommendedStoryPartyInfoDetour(IStoryCharacterGroupInfo* storyPartyCharacterGroupInfo, int storyPartyCharacterCount, nint recommendElements, nint registerEnemyElements, nint needNotesTypeSets, int recommendedBaseAttackType, CBool isBossMultiple, nint bossEnemies, CBool isForce, nint method) =>
-        Il2CppType<StoryWork.StoryCharacterGroupStore>.Is(storyPartyCharacterGroupInfo, out var storyCharacterGroupStore) && storyCharacterGroupStore->storyCharacterGroupId == cachedPartyGroupId && cachedPartyInfo != null
-            ? cachedPartyInfo
-            : CreateRecommendedStoryPartyInfoHook!.Original(storyPartyCharacterGroupInfo, storyPartyCharacterCount, recommendElements, registerEnemyElements, needNotesTypeSets, recommendedBaseAttackType, isBossMultiple, bossEnemies, isForce, method);
 }

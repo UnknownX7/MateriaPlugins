@@ -8,6 +8,7 @@ namespace MicroMacros;
 
 public unsafe class GilShopper : IMicroMacro
 {
+    private const long shopID = 101067;
     private bool enabled = false;
     public ref bool Enabled => ref enabled;
 
@@ -17,7 +18,7 @@ public unsafe class GilShopper : IMicroMacro
         {
             foreach (var t in shopModal.NativePtr->contentHandles->Enumerable)
             {
-                if (Il2CppType<ShopWork.ShopStore>.Is(t.Item2, out var shopStore) && shopStore->masterShop->id == 101002
+                if (Il2CppType<ShopWork.ShopStore>.Is(t.Item2, out var shopStore) && shopStore->masterShop->id == shopID
                     && Il2CppType<ContentChanger.ContentHandle>.Is(t.Item1, out var contentHandle)
                     && Il2CppType<ShopSingleContent>.Is(contentHandle->content, out var shopContent) && shopContent->isOpen && shopContent->shopProductList->scroller->activeCells->size != 0
                     && Il2CppType<ShopSingleProductCell>.Is(shopContent->shopProductList->scroller->activeCells->GetPtr(0), out var productCell) && productCell->shopSingleProductCellColumns->size != 0)
@@ -32,13 +33,13 @@ public unsafe class GilShopper : IMicroMacro
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopCheckPurchaseItemsModal>() is { } shopCheckPurchaseItemsModal)
         {
-            if (shopCheckPurchaseItemsModal.NativePtr->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopCheckPurchaseItemsModal.NativePtr->currentShopProductParameter->ShopId == 101002)
+            if (shopCheckPurchaseItemsModal.NativePtr->consumptionType == ShopCheckPurchaseModal.ConsumptionType.Item && shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopCheckPurchaseItemsModal.NativePtr->currentShopProductParameter->ShopId == shopID)
                 GameInterop.TapButton(shopCheckPurchaseItemsModal.NativePtr->consumptionItemField->okButton, false);
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupModal>() is { } shopResetLineupModal)
         {
             var shopStore = (ShopWork.ShopStore*)shopResetLineupModal.NativePtr->currentShopInfo;
-            if (shopResetLineupModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id == 101002)
+            if (shopResetLineupModal.NativePtr->consumptionItemField->consumptionItemId == 1 && shopStore->masterShop->id == shopID)
                 GameInterop.TapButton(shopResetLineupModal.NativePtr->consumptionItemField->okButton, false);
         }
         else if (ModalManager.Instance?.GetCurrentModal<ShopResetLineupSimpleModalPresenter>() is { } simpleResetLineupModal)
@@ -62,7 +63,7 @@ public unsafe class GilShopper : IMicroMacro
             for (int i = 0; i < shopModal->contentHandles->size; i++)
             {
                 var t = shopModal->contentHandles->Get(i);
-                if (!Il2CppType<ShopWork.ShopStore>.Is(t.Item2, out var shopStore) || shopStore->masterShop->id != 101002) continue;
+                if (!Il2CppType<ShopWork.ShopStore>.Is(t.Item2, out var shopStore) || shopStore->masterShop->id != shopID) continue;
                 if (!Il2CppType<ContentChanger.ContentHandle>.Is(t.Item1, out var contentHandle)
                     || !Il2CppType<ShopSingleContent>.Is(contentHandle->content, out var shopContent)
                     || !shopContent->isOpen)
