@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Materia.Plugin;
 
 namespace Infomania;
@@ -8,6 +8,7 @@ public class Configuration : PluginConfiguration
     public class InfoConfiguration
     {
         public bool Locked { get; set; }
+        public float Scale { get; set; } = 1;
     }
 
     public bool EnableHomeInfo { get; set; }

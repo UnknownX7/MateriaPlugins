@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using ImGuiNET;
 using Materia.Game;
 using Materia.Plugin;
@@ -185,6 +185,8 @@ public unsafe class Infomania : IMateriaPlugin
             flags |= ImGuiWindowFlags.NoMove;
         ImGui.Begin(id, flags);
 
+        ImGui.SetWindowFontScale(1);
+
         if (ImGui.BeginPopupContextWindow())
         {
             if (ImGui.Selectable(config.Locked ? "Unlock" : "Lock"))
@@ -192,7 +194,18 @@ public unsafe class Infomania : IMateriaPlugin
                 config.Locked ^= true;
                 Config.Save();
             }
+
+            var f = config.Scale;
+            ImGui.SetNextItemWidth(64 * ImGuiEx.Scale);
+            if (ImGui.SliderFloat("Scale", ref f, 0.5f, 2f, "%.1f"))
+            {
+                config.Scale = f;
+                Config.Save();
+            }
+
             ImGui.EndPopup();
         }
+
+        ImGui.SetWindowFontScale(config.Scale);
     }
 }
