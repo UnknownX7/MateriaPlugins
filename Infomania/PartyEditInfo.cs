@@ -20,6 +20,7 @@ public enum SkillSlotType
 {
     MainWeapon,
     AbilityWeapon,
+    UltimateWeapon,
     Materia1,
     Materia2,
     Materia3,
@@ -35,6 +36,35 @@ public class CalculationInfo
         public int coefficient;
         public static Multiplier operator +(Multiplier left, Multiplier right) => new() { add = left.add + right.add, coefficient = left.coefficient + right.coefficient };
         public static Multiplier operator /(Multiplier left, int right) => new() { add = left.add / right, coefficient = left.coefficient / right };
+        public int Multiply(int other) => (other + add) * coefficient / 1000;
+    }
+
+    public class PassiveMultiplierInfo
+    {
+        public Multiplier physicalMultiplier;
+        public Multiplier magicalMultiplier;
+        public Multiplier limitBreakMultiplier;
+        public Multiplier summonMultiplier;
+        public Multiplier healMultiplier;
+        public Multiplier[] elementalMultipliers = new Multiplier[(int)ElementType.Dark + 1];
+    }
+
+    public class SkillInfo
+    {
+        public SkillSlotType slotType;
+        public SkillAttackType attackType;
+        public SkillBaseAttackType baseAttackType;
+        public ElementType elementType;
+        public int baseCoefficient;
+        public int regenCoefficient;
+        public int flat;
+        public int baseConditionalCoefficient;
+        public int conditionalFlat;
+        public bool shouldDisplayCrit;
+        public Multiplier multiplier = new() { coefficient = 1000 };
+        public Multiplier conditional;
+        public int Coefficient => multiplier.Multiply(baseCoefficient);
+        public int ConditionalCoefficient => (multiplier + conditional).Multiply(baseConditionalCoefficient);
     }
 
     public int physicalBaseDamage;
@@ -42,15 +72,211 @@ public class CalculationInfo
     public int hybridBaseDamage;
     public int heal;
     public int criticalCoefficient;
-    public Multiplier physicalMultiplier;
-    public Multiplier magicalMultiplier;
-    public Multiplier limitBreakMultiplier;
-    public Multiplier summonMultiplier;
-    public Multiplier healMultiplier;
+
     public Multiplier highwindSkillMultiplier;
     public Multiplier highwindMateriaMultiplier;
     public Multiplier highwindSpecialSkillMultiplier;
-    public Multiplier[] elementalMultipliers = new Multiplier[(int)ElementType.Dark + 1];
+
+    public PassiveMultiplierInfo multipliers = new();
+    public PassiveMultiplierInfo conditional = new();
+
+    public static unsafe SkillInfo ToSkillInfo(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo)
+    {
+        var skillInfo = new SkillInfo { slotType = slotType, baseAttackType = baseSkillInfo->baseAttackType };
+
+        var foundDamageEffect = false;
+        foreach (var p in baseSkillInfo->skillEffectDetailInfos->PtrEnumerable)
+        {
+            var skillEffectInfo = p.ptr->skillEffectInfo;
+            var isConditional = skillEffectInfo->skillTriggerType switch
+            {
+                SkillTriggerType.None => false,
+                SkillTriggerType.Hit => false,
+                SkillTriggerType.Tactics => false,
+                _ => true
+            };
+
+            switch (skillEffectInfo->skillEffectType)
+            {
+                case SkillEffectType.Damage:
+                    if (foundDamageEffect || !Il2CppType<SkillDamageInfo>.Is(p.ptr->skillEffectDetail, out var skillDamageInfo) || skillDamageInfo->skillDamageType != SkillDamageType.Normal) continue;
+
+                    skillInfo.attackType = skillDamageInfo->skillAttackType;
+                    skillInfo.elementType = skillDamageInfo->damageElementType;
+                    skillInfo.baseCoefficient = skillDamageInfo->damageMagnificationPermil.permilValue;
+                    skillInfo.baseConditionalCoefficient = skillInfo.baseCoefficient;
+
+                    if (skillDamageInfo->skillDamageEffectChangeParameterType != SkillDamageEffectChangeParameterType.None)
+                    {
+                        var multiplier = 0;
+                        if (skillDamageInfo->skillDamageChangeInfoList != null && skillDamageInfo->skillDamageChangeInfoList->size > 0)
+                            multiplier += skillDamageInfo->skillDamageChangeInfoList->PtrEnumerable.Max(c => c.ptr->damageChangePermil.permilValue);
+                        if (skillDamageInfo->skillDamageDefenseChangeInfoList != null && skillDamageInfo->skillDamageDefenseChangeInfoList->size > 0)
+                            multiplier += skillDamageInfo->skillDamageDefenseChangeInfoList->PtrEnumerable.Max(c => c.ptr->damageChangePermil.permilValue);
+
+                        skillInfo.baseConditionalCoefficient = skillInfo.baseConditionalCoefficient * multiplier / 1000;
+                    }
+
+                    foundDamageEffect = true; // TODO: Multiple damage types?
+                    break;
+                case SkillEffectType.Additional:
+                    if (!Il2CppType<SkillChangeEffectInfo>.Is(p.ptr->skillEffectDetail, out var skillChangeEffectInfo)) continue;
+
+                    switch (skillChangeEffectInfo->skillAdditionalType)
+                    {
+                        case SkillAdditionalType.DamageChange:
+                            if (isConditional)
+                                skillInfo.conditional.add += skillChangeEffectInfo->additiveValue;
+                            else
+                                skillInfo.multiplier.add += skillChangeEffectInfo->additiveValue;
+                            break;
+                        case SkillAdditionalType.DamageRateChange:
+                            if (isConditional)
+                            {
+                                skillInfo.conditional.coefficient += skillChangeEffectInfo->additiveValue - 1000;
+                                if (skillEffectInfo->skillTriggerType == SkillTriggerType.CriticalHit)
+                                    skillInfo.shouldDisplayCrit = true;
+                            }
+                            else
+                            {
+                                skillInfo.multiplier.coefficient += skillChangeEffectInfo->additiveValue - 1000;
+                            }
+                            break;
+                        case SkillAdditionalType.AdditionalDamage:
+                            if (isConditional)
+                                skillInfo.conditionalFlat += skillChangeEffectInfo->additiveValue;
+                            else
+                                skillInfo.flat += skillChangeEffectInfo->additiveValue;
+                            break;
+                    }
+                    break;
+                case SkillEffectType.StatusChange:
+                    if (!Il2CppType<SkillStatusChangeEffectInfo>.Is(p.ptr->skillEffectDetail, out var skillStatusChangeEffectInfo)) continue;
+
+                    switch (skillStatusChangeEffectInfo->statusChangeType)
+                    {
+                        case SkillStatusChangeType.RegenerateHealPower:
+                            skillInfo.regenCoefficient = skillStatusChangeEffectInfo->effectCoefficient * (int)(skillStatusChangeEffectInfo->duration / 2.9f);
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        return skillInfo;
+    }
+
+    public static unsafe Multiplier ToMultiplier(SkillAttackType attackType, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
+    {
+        if (materiaSupportSlot == null) return default;
+
+        var supportSlotDamageMultiplier = new Multiplier();
+        var supportSlotHealingMultiplier = new Multiplier();
+        foreach (var p in materiaSupportSlot->materiaSupportEfefcts->PtrEnumerable)
+        {
+            switch (p.ptr->supportEffectType)
+            {
+                case SupportEffectType.Damage:
+                    if (p.ptr->isPercent)
+                        supportSlotDamageMultiplier.coefficient += p.ptr->value;
+                    else
+                        supportSlotDamageMultiplier.add += p.ptr->value;
+                    break;
+                case SupportEffectType.Healing:
+                    if (p.ptr->isPercent)
+                        supportSlotHealingMultiplier.coefficient += p.ptr->value;
+                    else
+                        supportSlotHealingMultiplier.add += p.ptr->value;
+                    break;
+            }
+        }
+
+        return attackType != SkillAttackType.Heal ? supportSlotDamageMultiplier : supportSlotHealingMultiplier;
+    }
+
+    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot) =>
+        CalculateDamage(slotType, ToSkillInfo(slotType, baseSkillInfo), materiaSupportSlot);
+
+    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, SkillInfo skillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
+    {
+        var supportSlotMultiplier = ToMultiplier(skillInfo.attackType, materiaSupportSlot);
+        Multiplier materiaMultiplier = default;
+
+        var baseDamage = 0;
+        Multiplier passiveMultiplier;
+        Multiplier conditionalMultiplier;
+        switch (skillInfo.attackType)
+        {
+            case SkillAttackType.Physical:
+                baseDamage = physicalBaseDamage;
+                passiveMultiplier = multipliers.physicalMultiplier;
+                conditionalMultiplier = conditional.physicalMultiplier;
+                break;
+            case SkillAttackType.Magical:
+                baseDamage = magicalBaseDamage;
+                passiveMultiplier = multipliers.magicalMultiplier;
+                conditionalMultiplier = conditional.magicalMultiplier;
+                break;
+            case SkillAttackType.Both:
+                baseDamage = hybridBaseDamage;
+                passiveMultiplier = (multipliers.physicalMultiplier + multipliers.magicalMultiplier) / 2;
+                conditionalMultiplier = (conditional.physicalMultiplier + conditional.magicalMultiplier) / 2;
+                break;
+            case SkillAttackType.Heal:
+                baseDamage = heal;
+                passiveMultiplier = multipliers.healMultiplier;
+                conditionalMultiplier = conditional.healMultiplier;
+                break;
+            default:
+                passiveMultiplier = default;
+                conditionalMultiplier = default;
+                break;
+        }
+
+        Multiplier highwindMultiplier;
+        switch (slotType)
+        {
+            case SkillSlotType.MainWeapon:
+            case SkillSlotType.AbilityWeapon:
+                highwindMultiplier = highwindSkillMultiplier;
+                break;
+            case SkillSlotType.Materia1:
+            case SkillSlotType.Materia2:
+            case SkillSlotType.Materia3:
+                highwindMultiplier = highwindMateriaMultiplier;
+                materiaMultiplier = supportSlotMultiplier;
+                break;
+            case SkillSlotType.LimitBreak:
+                highwindMultiplier = highwindSpecialSkillMultiplier;
+                passiveMultiplier += multipliers.limitBreakMultiplier;
+                conditionalMultiplier += conditional.limitBreakMultiplier;
+                break;
+            case SkillSlotType.Summon:
+                highwindMultiplier = highwindSpecialSkillMultiplier;
+                passiveMultiplier += multipliers.summonMultiplier;
+                conditionalMultiplier += conditional.summonMultiplier;
+                break;
+            //case SkillSlotType.UltimateWeapon:
+            default:
+                highwindMultiplier = default;
+                break;
+        }
+
+        passiveMultiplier += multipliers.elementalMultipliers[(int)skillInfo.elementType];
+        conditionalMultiplier += conditional.elementalMultipliers[(int)skillInfo.elementType];
+
+        conditionalMultiplier += passiveMultiplier;
+
+        var finalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.Coefficient, passiveMultiplier, materiaMultiplier, highwindMultiplier);
+        var finalConditionalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.ConditionalCoefficient, conditionalMultiplier, materiaMultiplier, highwindMultiplier);
+
+        if (skillInfo.shouldDisplayCrit)
+            finalConditionalCoefficient = finalConditionalCoefficient * criticalCoefficient / 1000;
+
+        return skillInfo.attackType != SkillAttackType.Heal
+         ? (PartyEditInfo.CalcDamage(baseDamage, finalCoefficient, 500) + skillInfo.flat, PartyEditInfo.CalcDamage(baseDamage, finalConditionalCoefficient, 500) + skillInfo.conditionalFlat)
+         : (PartyEditInfo.CalcHeal(baseDamage, finalCoefficient, 500) + skillInfo.flat, PartyEditInfo.CalcHeal(baseDamage, finalConditionalCoefficient, 500) + skillInfo.conditionalFlat + PartyEditInfo.CalcRegen(baseDamage, skillInfo.regenCoefficient, 500));
+    }
 }
 
 [Injection]
@@ -117,12 +343,12 @@ public unsafe class PartyEditInfo : ScreenInfo
 
     public override void Dispose() => cachedMemberInfo?.Dispose();
 
-    private static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
-    private static int CalcAllyDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
-    private static int CalcDamage(int baseDamage, int skillCoefficient, int stanceBonusCoefficient) => baseDamage * skillCoefficient / 1000 * (1000 + stanceBonusCoefficient) / 1000;
-    private static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
-    private static int CalcHeal(int heal, int skillCoefficient, int stanceBonusCoefficient) => heal * (skillCoefficient * 450 / 1000) / 1000 * (1000 + stanceBonusCoefficient) / 1000 + 10;
-    private static int CalcRegen(int heal, float duration, int stanceBonusCoefficient) => heal * 150 / 1000 * (1000 + stanceBonusCoefficient) / 1000 * (int)(duration / 2.9f);
+    public static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
+    public static int CalcAllyDamageReduction(int defense) => 100 - 2000000 / (defense * 100 + 10000);
+    public static int CalcDamage(int baseDamage, int skillCoefficient, int stanceBonusCoefficient) => baseDamage * skillCoefficient / 1000 * (1000 + stanceBonusCoefficient) / 1000;
+    public static int CalcHP(int hp, int defense, int stanceReductionCoefficient) => (int)(hp * (1 + (defense - 100) * 0.005f) / ((1000 - stanceReductionCoefficient) / 1000f));
+    public static int CalcHeal(int heal, int skillCoefficient, int stanceBonusCoefficient) => heal * (skillCoefficient * 450 / 1000) / 1000 * (1000 + stanceBonusCoefficient) / 1000 + 10;
+    public static int CalcRegen(int heal, int coefficient, int stanceBonusCoefficient) => heal * (coefficient * 500 / 1000) / 1000 * (1000 + stanceBonusCoefficient) / 1000;
 
     public static void DrawStats(PartyCharacterInfo* characterInfo)
     {
@@ -137,27 +363,34 @@ public unsafe class PartyEditInfo : ScreenInfo
 
         foreach (var p in characterInfo->passiveSkillEffectInfos->PtrEnumerable)
         {
+            var multipliers = p.ptr->passiveSkillTriggerType switch
+            {
+                PassiveSkillTriggerType.Always => info.multipliers,
+                PassiveSkillTriggerType.Tactics => info.multipliers,
+                _ => info.conditional
+            };
+
             switch (p.ptr->passiveSkillType)
             {
                 case PassiveSkillType.ElementDamage:
-                    info.elementalMultipliers[p.ptr->passiveDetailType].add += p.ptr->effectValue;
-                    info.elementalMultipliers[p.ptr->passiveDetailType].coefficient += p.ptr->effectCoefficient;
+                    multipliers.elementalMultipliers[p.ptr->passiveDetailType].add += p.ptr->effectValue;
+                    multipliers.elementalMultipliers[p.ptr->passiveDetailType].coefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.PhysicalDamage:
-                    info.physicalMultiplier.add += p.ptr->effectValue;
-                    info.physicalMultiplier.coefficient += p.ptr->effectCoefficient;
+                    multipliers.physicalMultiplier.add += p.ptr->effectValue;
+                    multipliers.physicalMultiplier.coefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.MagicalDamage:
-                    info.magicalMultiplier.add += p.ptr->effectValue;
-                    info.magicalMultiplier.coefficient += p.ptr->effectCoefficient;
+                    multipliers.magicalMultiplier.add += p.ptr->effectValue;
+                    multipliers.magicalMultiplier.coefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.LimitBreakDamage:
-                    info.limitBreakMultiplier.add += p.ptr->effectValue;
-                    info.limitBreakMultiplier.coefficient += p.ptr->effectCoefficient;
+                    multipliers.limitBreakMultiplier.add += p.ptr->effectValue;
+                    multipliers.limitBreakMultiplier.coefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.SummonDamage:
-                    info.summonMultiplier.add += p.ptr->effectValue;
-                    info.summonMultiplier.coefficient += p.ptr->effectCoefficient;
+                    multipliers.summonMultiplier.add += p.ptr->effectValue;
+                    multipliers.summonMultiplier.coefficient += p.ptr->effectCoefficient;
                     break;
                 case PassiveSkillType.Parameter:
                     break;
@@ -190,6 +423,8 @@ public unsafe class PartyEditInfo : ScreenInfo
             DrawCalculatedDamage(SkillSlotType.MainWeapon, characterInfo->mainWeaponInfo0->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
         if (characterInfo->mainWeaponInfo1 != null)
             DrawCalculatedDamage(SkillSlotType.AbilityWeapon, characterInfo->mainWeaponInfo1->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
+        if (characterInfo->legendaryWeaponInfo0 != null)
+            DrawCalculatedDamage(SkillSlotType.UltimateWeapon, characterInfo->legendaryWeaponInfo0->weaponSkill->legendarySkillInfo->baseSkillInfo, null, info);
         if (characterInfo->specialSkillInfo != null)
             DrawCalculatedDamage(characterInfo->specialSkillInfo->specialSkillType == SkillSpecialType.LimitBreak ? SkillSlotType.LimitBreak : SkillSlotType.Summon, characterInfo->specialSkillInfo->baseSkillInfo, null, info);
         if (characterInfo->materiaInfo0 != null)
@@ -234,152 +469,21 @@ public unsafe class PartyEditInfo : ScreenInfo
         DrawStats(array);
     }
 
-    private static void DrawCalculatedDamage(SkillSlotType skillSlotType, BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, CalculationInfo calculationInfo)
+    private static void DrawCalculatedDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, CalculationInfo calculationInfo)
     {
-        var materiaDamageMultiplier = new CalculationInfo.Multiplier();
-        var materiaHealingMultiplier = new CalculationInfo.Multiplier();
-        if (materiaSupportSlot != null)
-        {
-            foreach (var p in materiaSupportSlot->materiaSupportEfefcts->PtrEnumerable.Where(p => p.ptr->materiaSupportEffectTriggerType == SupportEffectTriggerType.Always))
-            {
-                switch (p.ptr->supportEffectType)
-                {
-                    case SupportEffectType.Damage:
-                        if (p.ptr->isPercent)
-                            materiaDamageMultiplier.coefficient += p.ptr->value;
-                        else
-                            materiaDamageMultiplier.add += p.ptr->value;
-                        break;
-                    case SupportEffectType.Healing:
-                        if (p.ptr->isPercent)
-                            materiaHealingMultiplier.coefficient += p.ptr->value;
-                        else
-                            materiaHealingMultiplier.add += p.ptr->value;
-                        break;
-                }
-            }
-        }
+        var skillInfo = CalculationInfo.ToSkillInfo(slotType, baseSkillInfo);
+        var (damage, conditionalDamage) = calculationInfo.CalculateDamage(slotType, skillInfo, materiaSupportSlot);
 
-        var conditionalCoefficient = 1000;
-        var regenDuration = 0f;
-        foreach (var p in baseSkillInfo->skillEffectDetailInfos->PtrEnumerable)
-        {
-            if (Il2CppType<SkillChangeEffectInfo>.Is(p.ptr->skillEffectDetail, out var skillChangeEffectInfo))
-            {
-                switch (skillChangeEffectInfo->skillAdditionalType)
-                {
-                    case SkillAdditionalType.DamageRateChange:
-                        conditionalCoefficient = conditionalCoefficient * skillChangeEffectInfo->additiveValue / 1000;
-                        if (p.ptr->skillEffectInfo->skillTriggerType == SkillTriggerType.CriticalHit)
-                            conditionalCoefficient = conditionalCoefficient * calculationInfo.criticalCoefficient / 1000;
-                        break;
-                }
-            }
-            else if (Il2CppType<SkillStatusChangeEffectInfo>.Is(p.ptr->skillEffectDetail, out var skillStatusChangeEffectInfo))
-            {
-                switch (skillStatusChangeEffectInfo->statusChangeType)
-                {
-                    case SkillStatusChangeType.RegenerateHealPower:
-                        regenDuration = skillStatusChangeEffectInfo->duration;
-                        break;
-                }
-            }
-        }
+        var elementText = skillInfo.elementType <= ElementType.No ? string.Empty : GetElementName(skillInfo.elementType);
+        var color = skillInfo.attackType != SkillAttackType.Heal ? GetElementColor(skillInfo.elementType) : new Vector4(0, 1, 0, 1);
 
-        foreach (var p in baseSkillInfo->skillEffectDetailInfos->PtrEnumerable)
-        {
-            if (!Il2CppType<SkillDamageInfo>.Is(p.ptr->skillEffectDetail, out var skillDamageInfo) || skillDamageInfo->skillDamageType != SkillDamageType.Normal) continue;
+        var additionalInfo = string.Empty;
+        if (damage != conditionalDamage)
+            additionalInfo = $" ({conditionalDamage}*)";
 
-            string damageType;
-            var heal = false;
-            int baseDamage;
-            CalculationInfo.Multiplier passiveMultiplier;
-            CalculationInfo.Multiplier materiaMultiplier;
-            switch (skillDamageInfo->skillAttackType)
-            {
-                case SkillAttackType.Physical:
-                    damageType = "P.";
-                    baseDamage = calculationInfo.physicalBaseDamage;
-                    passiveMultiplier = calculationInfo.physicalMultiplier;
-                    materiaMultiplier = materiaDamageMultiplier;
-                    break;
-                case SkillAttackType.Magical:
-                    damageType = "M.";
-                    baseDamage = calculationInfo.magicalBaseDamage;
-                    passiveMultiplier = calculationInfo.magicalMultiplier;
-                    materiaMultiplier = materiaDamageMultiplier;
-                    break;
-                case SkillAttackType.Both:
-                    damageType = "P./M.";
-                    baseDamage = calculationInfo.hybridBaseDamage;
-                    passiveMultiplier = (calculationInfo.physicalMultiplier + calculationInfo.magicalMultiplier) / 2;
-                    materiaMultiplier = materiaDamageMultiplier;
-                    break;
-                case SkillAttackType.Heal:
-                    damageType = baseSkillInfo->baseAttackType switch
-                    {
-                        SkillBaseAttackType.Physical => "P.Heal",
-                        SkillBaseAttackType.Magical => "M.Heal",
-                        SkillBaseAttackType.Both => "P./M.Heal",
-                        _ => "? Heal"
-                    };
-                    heal = true;
-                    baseDamage = calculationInfo.heal;
-                    passiveMultiplier = calculationInfo.healMultiplier;
-                    materiaMultiplier = materiaHealingMultiplier;
-                    break;
-                default:
-                    damageType = "?";
-                    baseDamage = 0;
-                    passiveMultiplier = default;
-                    materiaMultiplier = default;
-                    break;
-            }
-
-            passiveMultiplier += calculationInfo.elementalMultipliers[(int)skillDamageInfo->damageElementType];
-
-            var skillCoefficient = 0;
-            switch (skillSlotType)
-            {
-                case SkillSlotType.MainWeapon:
-                case SkillSlotType.AbilityWeapon:
-                    skillCoefficient = CalcSkillDamageCoefficient(skillDamageInfo->damageMagnificationPermil.permilValue, passiveMultiplier, default, calculationInfo.highwindSkillMultiplier);
-                    break;
-                case SkillSlotType.Materia1:
-                case SkillSlotType.Materia2:
-                case SkillSlotType.Materia3:
-                    skillCoefficient = CalcSkillDamageCoefficient(skillDamageInfo->damageMagnificationPermil.permilValue, passiveMultiplier, materiaMultiplier, calculationInfo.highwindMateriaMultiplier);
-                    break;
-                case SkillSlotType.LimitBreak:
-                    skillCoefficient = CalcSkillDamageCoefficient(skillDamageInfo->damageMagnificationPermil.permilValue, passiveMultiplier + calculationInfo.limitBreakMultiplier, default, calculationInfo.highwindSpecialSkillMultiplier);
-                    break;
-                case SkillSlotType.Summon:
-                    skillCoefficient = CalcSkillDamageCoefficient(skillDamageInfo->damageMagnificationPermil.permilValue, passiveMultiplier + calculationInfo.summonMultiplier, default, calculationInfo.highwindSpecialSkillMultiplier);
-                    break;
-            }
-
-            var elementText = skillDamageInfo->damageElementType <= ElementType.No ? string.Empty : GetElementName(skillDamageInfo->damageElementType);
-            var expectedAmount = skillDamageInfo->skillAttackType != SkillAttackType.Heal
-                ? CalcDamage(baseDamage, skillCoefficient, 500)
-                : CalcHeal(baseDamage, skillCoefficient, 500);
-            var color = skillDamageInfo->skillAttackType != SkillAttackType.Heal
-                ? GetElementColor(skillDamageInfo->damageElementType)
-                : new Vector4(0, 1, 0, 1);
-
-            var additionalInfo = string.Empty;
-            var additionalAmount = expectedAmount;
-            if (conditionalCoefficient != 1000)
-                additionalAmount = additionalAmount * conditionalCoefficient / 1000;
-            if (heal && regenDuration > 0)
-                additionalAmount += CalcRegen(baseDamage, regenDuration, 500);
-            if (additionalAmount != expectedAmount)
-                additionalInfo = $" ({additionalAmount}*)";
-
-            ImGui.TextColored(new Vector4(0.75f), GetSlotName(skillSlotType));
-            ImGui.SameLine();
-            ImGui.TextColored(color, $"{expectedAmount}{additionalInfo} {damageType}{elementText}");
-            break;
-        }
+        ImGui.TextColored(new Vector4(0.75f), GetSlotName(slotType));
+        ImGui.SameLine();
+        ImGui.TextColored(color, $"{damage}{additionalInfo} {GetAttackTypeName(skillInfo.attackType, skillInfo.baseAttackType)}{elementText}");
     }
 
     private static bool IsMateriaSupportActive(long materiaId, WeaponMateriaSupportSlotInfo* materiaSupportSlot) => materiaSupportSlot->targetMateriaIds->Enumerable.Any(id => id == materiaId);
@@ -388,12 +492,28 @@ public unsafe class PartyEditInfo : ScreenInfo
     {
         SkillSlotType.MainWeapon => "M:",
         SkillSlotType.AbilityWeapon => "A:",
+        SkillSlotType.UltimateWeapon => "U:",
         SkillSlotType.Materia1 => "1:",
         SkillSlotType.Materia2 => "2:",
         SkillSlotType.Materia3 => "3:",
         SkillSlotType.LimitBreak => "L:",
         SkillSlotType.Summon => "L:",
         _ => "?:"
+    };
+
+    public static string GetAttackTypeName(SkillAttackType attackType, SkillBaseAttackType baseAttackType) => attackType switch
+    {
+        SkillAttackType.Physical => "P.",
+        SkillAttackType.Magical => "M.",
+        SkillAttackType.Both => "P./M.",
+        SkillAttackType.Heal => baseAttackType switch
+        {
+            SkillBaseAttackType.Physical => "P.Heal",
+            SkillBaseAttackType.Magical => "M.Heal",
+            SkillBaseAttackType.Both => "P./M.Heal",
+            _ => "? Heal"
+        },
+        _ => "?"
     };
 
     public static string GetElementName(ElementType element) => element switch
