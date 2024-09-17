@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using ECGen.Generated;
 using ECGen.Generated.Command.Battle;
 using ECGen.Generated.Command;
 using ECGen.Generated.Command.Enums;
@@ -166,6 +167,24 @@ public class CalculationInfo
         return skillInfo;
     }
 
+    public static unsafe Multiplier ToMultiplier(SkillAttackType attackType, Unmanaged_Array<WeaponAttachmentEffectInfo>* brands)
+    {
+        var damageMultiplier = new Multiplier { coefficient = 1000 };
+        if (brands == null || attackType is not (SkillAttackType.Physical or SkillAttackType.Magical or SkillAttackType.Both)) return damageMultiplier;
+
+        foreach (var p in brands->PtrEnumerable)
+        {
+            switch (p.ptr->weaponAttachmentEffectType)
+            {
+                case WeaponAttachmentEffectType.StatusUpCabilityPowerUp:
+                    damageMultiplier.coefficient += (int)p.ptr->value;
+                    break;
+            }
+        }
+
+        return damageMultiplier;
+    }
+
     public static unsafe Multiplier ToMultiplier(SkillAttackType attackType, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
     {
         if (materiaSupportSlot == null) return default;
@@ -194,11 +213,12 @@ public class CalculationInfo
         return attackType != SkillAttackType.Heal ? supportSlotDamageMultiplier : supportSlotHealingMultiplier;
     }
 
-    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot) =>
-        CalculateDamage(slotType, ToSkillInfo(slotType, baseSkillInfo), materiaSupportSlot);
+    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, Unmanaged_Array<WeaponAttachmentEffectInfo>* brands, WeaponMateriaSupportSlotInfo* materiaSupportSlot) =>
+        CalculateDamage(slotType, ToSkillInfo(slotType, baseSkillInfo), brands, materiaSupportSlot);
 
-    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, SkillInfo skillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
+    public unsafe (int damage, int conditionalDamage) CalculateDamage(SkillSlotType slotType, SkillInfo skillInfo, Unmanaged_Array<WeaponAttachmentEffectInfo>* brands, WeaponMateriaSupportSlotInfo* materiaSupportSlot)
     {
+        var brandMultiplier = ToMultiplier(skillInfo.attackType, brands);
         var supportSlotMultiplier = ToMultiplier(skillInfo.attackType, materiaSupportSlot);
         Multiplier materiaMultiplier = default;
 
@@ -267,8 +287,8 @@ public class CalculationInfo
 
         conditionalMultiplier += passiveMultiplier;
 
-        var finalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.Coefficient, passiveMultiplier, materiaMultiplier, highwindMultiplier);
-        var finalConditionalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.ConditionalCoefficient, conditionalMultiplier, materiaMultiplier, highwindMultiplier);
+        var finalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.Coefficient, passiveMultiplier, brandMultiplier, materiaMultiplier, highwindMultiplier);
+        var finalConditionalCoefficient = PartyEditInfo.CalcSkillDamageCoefficient(skillInfo.ConditionalCoefficient, conditionalMultiplier, brandMultiplier, materiaMultiplier, highwindMultiplier);
 
         if (skillInfo.shouldDisplayCrit)
             finalConditionalCoefficient = finalConditionalCoefficient * criticalCoefficient / 1000;
@@ -420,19 +440,19 @@ public unsafe class PartyEditInfo : ScreenInfo
         }
 
         if (characterInfo->mainWeaponInfo0 != null)
-            DrawCalculatedDamage(SkillSlotType.MainWeapon, characterInfo->mainWeaponInfo0->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
+            DrawCalculatedDamage(SkillSlotType.MainWeapon, characterInfo->mainWeaponInfo0->weaponSkill->activeSkillInfo->baseSkillInfo, characterInfo->mainWeaponInfo0->weaponAttachmentEffectInfos, null, info);
         if (characterInfo->mainWeaponInfo1 != null)
-            DrawCalculatedDamage(SkillSlotType.AbilityWeapon, characterInfo->mainWeaponInfo1->weaponSkill->activeSkillInfo->baseSkillInfo, null, info);
+            DrawCalculatedDamage(SkillSlotType.AbilityWeapon, characterInfo->mainWeaponInfo1->weaponSkill->activeSkillInfo->baseSkillInfo, characterInfo->mainWeaponInfo1->weaponAttachmentEffectInfos, null, info);
         if (characterInfo->legendaryWeaponInfo0 != null)
-            DrawCalculatedDamage(SkillSlotType.UltimateWeapon, characterInfo->legendaryWeaponInfo0->weaponSkill->legendarySkillInfo->baseSkillInfo, null, info);
+            DrawCalculatedDamage(SkillSlotType.UltimateWeapon, characterInfo->legendaryWeaponInfo0->weaponSkill->legendarySkillInfo->baseSkillInfo, characterInfo->legendaryWeaponInfo0->weaponAttachmentEffectInfos, null, info);
         if (characterInfo->specialSkillInfo != null)
-            DrawCalculatedDamage(characterInfo->specialSkillInfo->specialSkillType == SkillSpecialType.LimitBreak ? SkillSlotType.LimitBreak : SkillSlotType.Summon, characterInfo->specialSkillInfo->baseSkillInfo, null, info);
+            DrawCalculatedDamage(characterInfo->specialSkillInfo->specialSkillType == SkillSpecialType.LimitBreak ? SkillSlotType.LimitBreak : SkillSlotType.Summon, characterInfo->specialSkillInfo->baseSkillInfo, null, null, info);
         if (characterInfo->materiaInfo0 != null)
-            DrawCalculatedDamage(SkillSlotType.Materia1, characterInfo->materiaInfo0->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo0->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot0) ? characterInfo->mainWeaponInfo0->materiaSupportSlot0 : null, info);
+            DrawCalculatedDamage(SkillSlotType.Materia1, characterInfo->materiaInfo0->activeSkillInfo->baseSkillInfo, null, IsMateriaSupportActive(characterInfo->materiaInfo0->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot0) ? characterInfo->mainWeaponInfo0->materiaSupportSlot0 : null, info);
         if (characterInfo->materiaInfo1 != null)
-            DrawCalculatedDamage(SkillSlotType.Materia2, characterInfo->materiaInfo1->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo1->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot1) ? characterInfo->mainWeaponInfo0->materiaSupportSlot1 : null, info);
+            DrawCalculatedDamage(SkillSlotType.Materia2, characterInfo->materiaInfo1->activeSkillInfo->baseSkillInfo, null, IsMateriaSupportActive(characterInfo->materiaInfo1->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot1) ? characterInfo->mainWeaponInfo0->materiaSupportSlot1 : null, info);
         if (characterInfo->materiaInfo2 != null)
-            DrawCalculatedDamage(SkillSlotType.Materia3, characterInfo->materiaInfo2->activeSkillInfo->baseSkillInfo, IsMateriaSupportActive(characterInfo->materiaInfo2->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot2) ? characterInfo->mainWeaponInfo0->materiaSupportSlot2 : null, info);
+            DrawCalculatedDamage(SkillSlotType.Materia3, characterInfo->materiaInfo2->activeSkillInfo->baseSkillInfo, null, IsMateriaSupportActive(characterInfo->materiaInfo2->materiaId, characterInfo->mainWeaponInfo0->materiaSupportSlot2) ? characterInfo->mainWeaponInfo0->materiaSupportSlot2 : null, info);
 
         ImGui.Spacing();
         ImGui.TextUnformatted($"P.Res: {CalcAllyDamageReduction(characterInfo->totalStatus->physicalDefence)}% ({CalcHP(characterInfo->totalStatus->hp, characterInfo->totalStatus->physicalDefence, 0)} HP)");
@@ -469,10 +489,10 @@ public unsafe class PartyEditInfo : ScreenInfo
         DrawStats(array);
     }
 
-    private static void DrawCalculatedDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, CalculationInfo calculationInfo)
+    private static void DrawCalculatedDamage(SkillSlotType slotType, BaseSkillInfo* baseSkillInfo, Unmanaged_Array<WeaponAttachmentEffectInfo>* brands, WeaponMateriaSupportSlotInfo* materiaSupportSlot, CalculationInfo calculationInfo)
     {
         var skillInfo = CalculationInfo.ToSkillInfo(slotType, baseSkillInfo);
-        var (damage, conditionalDamage) = calculationInfo.CalculateDamage(slotType, skillInfo, materiaSupportSlot);
+        var (damage, conditionalDamage) = calculationInfo.CalculateDamage(slotType, skillInfo, brands, materiaSupportSlot);
 
         var elementText = skillInfo.elementType <= ElementType.No ? string.Empty : GetElementName(skillInfo.elementType);
         var color = skillInfo.attackType != SkillAttackType.Heal ? GetElementColor(skillInfo.elementType) : new Vector4(0, 1, 0, 1);
@@ -545,11 +565,11 @@ public unsafe class PartyEditInfo : ScreenInfo
 
     [GameSymbol("Command.Battle.ActiveSkillDamageEffect$$get_DamageMagnificationPermil")]
     private static delegate* unmanaged<ActiveSkillDamageEffect*, nint, int> getDamageMagnificationPermil;
-    public static int CalcSkillDamageCoefficient(int baseSkillCoefficient, CalculationInfo.Multiplier passiveMultiplier, CalculationInfo.Multiplier materiaMultiplier, CalculationInfo.Multiplier highwindMultiplier)
+    public static int CalcSkillDamageCoefficient(int baseSkillCoefficient, CalculationInfo.Multiplier passiveMultiplier, CalculationInfo.Multiplier brandMultiplier, CalculationInfo.Multiplier materiaMultiplier, CalculationInfo.Multiplier highwindMultiplier)
     {
         var skillDamageInfo = new SkillDamageInfo
         {
-            damageMagnificationPermil = new Permil { permilValue = baseSkillCoefficient }
+            damageMagnificationPermil = new Permil { permilValue = brandMultiplier.Multiply(baseSkillCoefficient) }
         };
 
         var activeSkillModel = new ActiveSkillModel
