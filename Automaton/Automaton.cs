@@ -4,20 +4,26 @@ using System.Linq;
 using System.Numerics;
 using ECGen.Generated;
 using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Option;
+using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.Stamina;
 using ECGen.Generated.Command.UI;
+using ECGen.Generated.Command.Work;
 using ImGuiNET;
+using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
+using SceneBehaviourManager = Materia.Game.SceneBehaviourManager;
 using ScreenManager = Materia.Game.ScreenManager;
 
 namespace Automaton;
 
+[Injection]
 public unsafe class Automaton : IMateriaPlugin
 {
     public string Name => "Automaton";
@@ -33,6 +39,9 @@ public unsafe class Automaton : IMateriaPlugin
 
     private static bool hasClosedStaminaModal = false;
     private static bool requeueInstead = false;
+    private static bool cactuarFarm = false;
+    private static bool exit = false;
+    private static long prevSoloAreaBattleID = 0;
     private bool draw = false;
     private bool repeating = false;
     private int repeatDelayMs;
@@ -94,6 +103,17 @@ public unsafe class Automaton : IMateriaPlugin
 
             GameInterop.TapButton(multiPartySelect.NativePtr->multiAreaView->randomMatchingButton, true, 10_000);
         }
+        else if (cactuarFarm && ScreenManager.Instance.GetCurrentScreen<SoloPartySelectScreenPresenter>() is { } soloPartySelect)
+        {
+            if (!soloPartySelect.NativePtr->canStaminaBoost) return;
+            soloPartySelect.NativePtr->staminaBoostType = StaminaBoostType.None;
+            soloPartySelect.NativePtr->soloPartyView->challengeButton->TapButton();
+        }
+        else if (prevSoloAreaBattleID > 0)
+        {
+            ScreenManager.TransitionAsync(TransitionType.AreaSoloBattle, prevSoloAreaBattleID);
+            prevSoloAreaBattleID = 0;
+        }
     }
 
     private void UpdateBattle()
@@ -116,6 +136,14 @@ public unsafe class Automaton : IMateriaPlugin
                 repeatDelayStopwatch.Stop();
             }
 
+            if (exit)
+            {
+                exit = !Retire();
+                if (exit)
+                    repeatDelayMs = 250;
+                return;
+            }
+
             if (HandleDefeat())
             {
                 repeating = false;
@@ -124,9 +152,39 @@ public unsafe class Automaton : IMateriaPlugin
 
             repeatDelayMs = HandleBattleModals();
             if (repeatDelayMs > 0) return;
+
+            HandleBattle();
         }
 
         if (HandleSpecialSkills(specialSkillMode)) return;
+    }
+
+    private static void HandleBattle()
+    {
+        if (!cactuarFarm || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } scene || !Il2CppType<BattleSceneBehaviour.SetupParameter>.Is(scene.NativePtr->battlePlayer->setupParameter, out var setup)) return;
+
+        var battleSystem = BattleSystem.Instance!;
+        var rareWaveID = battleSystem.NativePtr->resumeRareWaveInfo != null ? battleSystem.NativePtr->resumeRareWaveInfo->rareWaveId : 0;
+        //var rareType = (BattleRareWaveType)(WorkManager.GetRareWaveStore(rareWaveID) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0);
+        var currentBoost = setup->staminaBoostType;
+        var areaID = setup->areaBattleId;
+        if (rareWaveID != 0 || currentBoost == StaminaBoostType.None || areaID == 0 || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 0.1f || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None) return;
+
+        prevSoloAreaBattleID = areaID;
+        exit = true;
+    }
+
+    private static bool Retire()
+    {
+        var battleSystem = BattleSystem.Instance!;
+        if (battleSystem.IsPlayingCutscene
+            || !battleSystem.NativePtr->isPlayingBattle->GetValue()
+            || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 1
+            || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None)
+            return false;
+
+        onBattleEnd(battleSystem.NativePtr, BattleResultType.Retire, 0);
+        return true;
     }
 
     private static bool HandleDefeat() => BattleSystem.Instance is { IsDefeated: true };
@@ -153,6 +211,14 @@ public unsafe class Automaton : IMateriaPlugin
                     GameInterop.TapKeyAction(KeyAction.Back);
                     return 1;
                 }
+            }
+            else if (cactuarFarm
+                && modalManager.GetCurrentModal<SoloAreaBattleResultModalPresenter>() is { } soloModal
+                && Il2CppType<AreaBattleWork.SoloAreaBattleStore>.Is(soloModal.NativePtr->soloAreaBattleInfo, out var store)
+                && store->masterSoloAreaBattle->staminaCost != 0
+                && store->winResetInfo == null)
+            {
+                soloModal.NativePtr->nextBattleStaminaBoostType = convertStaminaBoostTypeIfNeeded(StaminaBoostType.Normal3, 0);
             }
 
             GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
@@ -230,15 +296,18 @@ public unsafe class Automaton : IMateriaPlugin
             return;
         }
 
-        ImGui.SetNextWindowSize(new Vector2(180, 160) * ImGuiEx.Scale);
+        ImGui.SetNextWindowSize(new Vector2(190, 180) * ImGuiEx.Scale);
         ImGui.Begin("Automaton", ref draw, ImGuiWindowFlags.NoResize);
 
         if (ImGui.Checkbox("Repeat", ref repeating))
         {
+            exit = false;
+            prevSoloAreaBattleID = 0;
             repeatDelayMs = 0;
             repeatDelayStopwatch.Stop();
         }
 
+        ImGui.Checkbox("Cactuar Farm", ref cactuarFarm);
         ImGui.Checkbox("Leave No Bonus Co-op", ref beToxic);
         ImGui.Checkbox("Exit After Co-op", ref requeueInstead);
 
@@ -251,4 +320,13 @@ public unsafe class Automaton : IMateriaPlugin
 
         ImGui.End();
     }
+
+    [GameSymbol("Command.OutGame.StaminaBoost.StaminaBoostUtility$$ConvertStaminaBoostTypeIfNeeded")]
+    private static delegate* unmanaged<StaminaBoostType, nint, StaminaBoostType> convertStaminaBoostTypeIfNeeded;
+
+    //[GameSymbol("Command.Battle.BattleSystem$$SetPause")]
+    //private static delegate* unmanaged<void*, CBool, nint, void> battleSystemSetPause;
+
+    [GameSymbol("Command.Battle.BattleSystem$$OnBattleEnd")]
+    private static delegate* unmanaged<void*, BattleResultType, nint, void> onBattleEnd;
 }
