@@ -161,14 +161,22 @@ public unsafe class Automaton : IMateriaPlugin
 
     private static void HandleBattle()
     {
-        if (!cactuarFarm || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } scene || !Il2CppType<BattleSceneBehaviour.SetupParameter>.Is(scene.NativePtr->battlePlayer->setupParameter, out var setup)) return;
-
         var battleSystem = BattleSystem.Instance!;
+        if (!cactuarFarm
+            || battleSystem.IsServerside
+            || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 0.1f
+            || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None
+            || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } scene
+            || !Il2CppType<BattleSceneBehaviour.SetupParameter>.Is(scene.NativePtr->battlePlayer->setupParameter, out var setup)
+            || !setup->canRetire
+            || setup->staminaBoostType == StaminaBoostType.None
+            || setup->battleModeType != BattleModeType.Normal)
+            return;
+
         var rareWaveID = battleSystem.NativePtr->resumeRareWaveInfo != null ? battleSystem.NativePtr->resumeRareWaveInfo->rareWaveId : 0;
         //var rareType = (BattleRareWaveType)(WorkManager.GetRareWaveStore(rareWaveID) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0);
-        var currentBoost = setup->staminaBoostType;
         var areaID = setup->areaBattleId;
-        if (rareWaveID != 0 || currentBoost == StaminaBoostType.None || areaID == 0 || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 0.1f || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None) return;
+        if (rareWaveID != 0 || areaID == 0) return;
 
         prevSoloAreaBattleID = areaID;
         exit = true;
