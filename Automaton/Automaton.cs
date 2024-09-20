@@ -105,7 +105,7 @@ public unsafe class Automaton : IMateriaPlugin
         }
         else if (cactuarFarm && ScreenManager.Instance.GetCurrentScreen<SoloPartySelectScreenPresenter>() is { } soloPartySelect)
         {
-            if (!soloPartySelect.NativePtr->canStaminaBoost) return;
+            if (!soloPartySelect.NativePtr->canStaminaBoost || ModalManager.Instance?.CurrentModal != null) return;
             soloPartySelect.NativePtr->staminaBoostType = StaminaBoostType.None;
             soloPartySelect.NativePtr->soloPartyView->challengeButton->TapButton();
         }
