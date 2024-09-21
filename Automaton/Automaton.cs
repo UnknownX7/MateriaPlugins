@@ -20,6 +20,7 @@ using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
 using SceneBehaviourManager = Materia.Game.SceneBehaviourManager;
 using ScreenManager = Materia.Game.ScreenManager;
+using WorkManager = Materia.Game.WorkManager;
 
 namespace Automaton;
 
@@ -37,9 +38,17 @@ public unsafe class Automaton : IMateriaPlugin
         Follow
     }
 
+    private enum CactuarFarmMode
+    {
+        Disabled,
+        All,
+        Normal,
+        Crystal
+    }
+
     private static bool hasClosedStaminaModal = false;
     private static bool requeueInstead = false;
-    private static bool cactuarFarm = false;
+    private static CactuarFarmMode cactuarFarmMode = CactuarFarmMode.Disabled;
     private static bool exit = false;
     private static long prevSoloAreaBattleID = 0;
     private bool draw = false;
@@ -103,7 +112,7 @@ public unsafe class Automaton : IMateriaPlugin
 
             GameInterop.TapButton(multiPartySelect.NativePtr->multiAreaView->randomMatchingButton, true, 10_000);
         }
-        else if (cactuarFarm && ScreenManager.Instance.GetCurrentScreen<SoloPartySelectScreenPresenter>() is { } soloPartySelect)
+        else if (cactuarFarmMode != CactuarFarmMode.Disabled && ScreenManager.Instance.GetCurrentScreen<SoloPartySelectScreenPresenter>() is { } soloPartySelect)
         {
             if (!soloPartySelect.NativePtr->canStaminaBoost || ModalManager.Instance?.CurrentModal != null) return;
             soloPartySelect.NativePtr->staminaBoostType = StaminaBoostType.None;
@@ -162,9 +171,9 @@ public unsafe class Automaton : IMateriaPlugin
     private static void HandleBattle()
     {
         var battleSystem = BattleSystem.Instance!;
-        if (!cactuarFarm
+        if (cactuarFarmMode == CactuarFarmMode.Disabled
             || battleSystem.IsServerside
-            || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 0.1f
+            || !battleSystem.NativePtr->isPlayingBattle->GetValue()
             || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None
             || SceneBehaviourManager.GetCurrentSceneBehaviour<BattleSceneBehaviour>() is not { } scene
             || !Il2CppType<BattleSceneBehaviour.SetupParameter>.Is(scene.NativePtr->battlePlayer->setupParameter, out var setup)
@@ -173,10 +182,23 @@ public unsafe class Automaton : IMateriaPlugin
             || setup->battleModeType != BattleModeType.Normal)
             return;
 
-        var rareWaveID = battleSystem.NativePtr->resumeRareWaveInfo != null ? battleSystem.NativePtr->resumeRareWaveInfo->rareWaveId : 0;
-        //var rareType = (BattleRareWaveType)(WorkManager.GetRareWaveStore(rareWaveID) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0);
         var areaID = setup->areaBattleId;
-        if (rareWaveID != 0 || areaID == 0) return;
+        if (areaID == 0) return;
+
+        var rareWaveID = battleSystem.NativePtr->resumeRareWaveInfo != null ? battleSystem.NativePtr->resumeRareWaveInfo->rareWaveId : 0;
+        if (rareWaveID != 0)
+        {
+            var rareType = (BattleRareWaveType)(WorkManager.GetRareWaveStore(rareWaveID) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0);
+            switch (cactuarFarmMode)
+            {
+                case CactuarFarmMode.All:
+                    return;
+                case CactuarFarmMode.Normal when rareType == BattleRareWaveType.Normal:
+                    return;
+                case CactuarFarmMode.Crystal when rareType == BattleRareWaveType.GuildBonus:
+                    return;
+            }
+        }
 
         prevSoloAreaBattleID = areaID;
         exit = true;
@@ -187,7 +209,6 @@ public unsafe class Automaton : IMateriaPlugin
         var battleSystem = BattleSystem.Instance!;
         if (battleSystem.IsPlayingCutscene
             || !battleSystem.NativePtr->isPlayingBattle->GetValue()
-            || battleSystem.NativePtr->elapsedBattleTime->GetValue() < 1
             || battleSystem.NativePtr->battleResultType->GetValue() != BattleResultType.None)
             return false;
 
@@ -209,7 +230,7 @@ public unsafe class Automaton : IMateriaPlugin
 
             if (BattleSystem.Instance is { IsMultiplayer: true })
             {
-                if (requeueInstead && GameInterop.TapKeyAction(KeyAction.Back, false, 50))
+                if (requeueInstead && GameInterop.TapKeyAction(KeyAction.Back, true, 50))
                 {
                     return 1;
                 }
@@ -220,23 +241,23 @@ public unsafe class Automaton : IMateriaPlugin
                     return 1;
                 }
             }
-            else if (cactuarFarm
+            else if (cactuarFarmMode != CactuarFarmMode.Disabled
                 && modalManager.GetCurrentModal<SoloAreaBattleResultModalPresenter>() is { } soloModal
                 && Il2CppType<AreaBattleWork.SoloAreaBattleStore>.Is(soloModal.NativePtr->soloAreaBattleInfo, out var store)
                 && store->masterSoloAreaBattle->staminaCost != 0
-                && store->winResetInfo == null)
+                && GameInterop.IsGameObjectActive(soloModal.NativePtr->view->staminaBoostButton))
             {
                 soloModal.NativePtr->nextBattleStaminaBoostType = convertStaminaBoostTypeIfNeeded(StaminaBoostType.Normal3, 0);
             }
 
-            GameInterop.TapKeyAction(KeyAction.Confirm, false, 50);
+            GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
             return 1;
         }
         else if (modalManager.GetCurrentModal<StaminaRecoverModal>() is { } staminaRecoverModal)
         {
             hasClosedStaminaModal = true;
             return GameInterop.TapButton(staminaRecoverModal.NativePtr->modalCloseButton)
-                ? BattleSystem.Instance is { IsMultiplayer: true } ? 10_000 : 10 * 60_000
+                ? BattleSystem.Instance is { IsMultiplayer: true } ? 10_000 : 2 * 60_000
                 : 1;
         }
         else if (modalManager.GetCurrentModal<MultiAreaBattleFirstMeetingModalPresenter>() is { } firstMeetingModal)
@@ -304,7 +325,7 @@ public unsafe class Automaton : IMateriaPlugin
             return;
         }
 
-        ImGui.SetNextWindowSize(new Vector2(190, 180) * ImGuiEx.Scale);
+        ImGui.SetNextWindowSize(new Vector2(190, 200) * ImGuiEx.Scale);
         ImGui.Begin("Automaton", ref draw, ImGuiWindowFlags.NoResize);
 
         if (ImGui.Checkbox("Repeat", ref repeating))
@@ -315,7 +336,9 @@ public unsafe class Automaton : IMateriaPlugin
             repeatDelayStopwatch.Stop();
         }
 
-        ImGui.Checkbox("Cactuar Farm", ref cactuarFarm);
+        ImGui.TextUnformatted("Cactuar Farm Mode");
+        ImGuiEx.Combo("##CactuarFarmMode", ref cactuarFarmMode);
+
         ImGui.Checkbox("Leave No Bonus Co-op", ref beToxic);
         ImGui.Checkbox("Exit After Co-op", ref requeueInstead);
 
@@ -324,7 +347,7 @@ public unsafe class Automaton : IMateriaPlugin
         ImGui.Spacing();
 
         ImGui.TextUnformatted("L. Ability Usage Mode");
-        ImGuiEx.Combo(string.Empty, ref specialSkillMode);
+        ImGuiEx.Combo("##SpecialSkillMode", ref specialSkillMode);
 
         ImGui.End();
     }
