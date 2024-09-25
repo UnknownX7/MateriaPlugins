@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Numerics;
 using ECGen.Generated.Command.Api;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame.Gift;
@@ -10,6 +11,10 @@ namespace Infomania;
 
 public unsafe class GiftInfo : ModalInfo
 {
+    private const long expiryGroupingThreshold = 1000 * 60 * 60 * 24;
+    private const long expiryWarningThreshold = 1000 * 60 * 60 * 24 * 7;
+    private static readonly Vector4 red = new(1, 0.6f, 0.6f, 1);
+
     public override bool Enabled => Infomania.Config.EnableGiftInfo;
     public override Type[] ValidModals { get; } = [ typeof(GiftModalPresenter) ];
     private ECGen.Generated.Ptr<GiftRewardInfo>[] gifts = [];
@@ -66,17 +71,20 @@ public unsafe class GiftInfo : ModalInfo
         info.tempCount = info.count - info.permanentCount;
         if (info.tempCount <= 0) return info;
 
-        var firstExpiry = filteredGifts.MinBy(p => p.ptr->giftInfo->expireDatetime);
-        info.firstExpiry = firstExpiry.ptr->giftInfo->expireDatetime;
-        info.firstExpiryCount = firstExpiry.ptr->count;
+        info.firstExpiry = filteredGifts.MinBy(p => p.ptr->giftInfo->expireDatetime).ptr->giftInfo->expireDatetime;
+        var threshold = info.firstExpiry + expiryGroupingThreshold;
+        info.firstExpiryCount = filteredGifts.Where(p => p.ptr->giftInfo->expireDatetime <= threshold).Sum(p => p.ptr->count);
         return info;
     }
 
     private static void DrawGiftRewardTypeInfo(string name, GiftRewardTypeInfo info)
     {
         if (info.count <= 0) return;
+
         ImGui.TextUnformatted($"{name}: {info.count} ({info.permanentCount} + {info.tempCount} Expiring)");
-        if (info.tempCount > 0)
-            ImGui.TextUnformatted($"  First Expiry: {DateTimeOffset.FromUnixTimeMilliseconds(info.firstExpiry).ToLocalTime():g} ({info.firstExpiryCount})");
+        if (info.tempCount <= 0) return;
+
+        var remainingTime = info.firstExpiry - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        ImGui.TextColored(remainingTime > expiryWarningThreshold ? Vector4.One : red, $"  First Expiry: {DateTimeOffset.FromUnixTimeMilliseconds(info.firstExpiry).ToLocalTime():g} ({info.firstExpiryCount})");
     }
 }
