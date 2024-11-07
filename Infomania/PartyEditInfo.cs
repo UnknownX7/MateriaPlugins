@@ -271,9 +271,15 @@ public class CharacterCalculator
             }
         }
 
-        foreach (var p in characterInfo->materiaInfo0->materiaParameters->PtrEnumerable
-            .Concat(characterInfo->materiaInfo1->materiaParameters->PtrEnumerable)
-            .Concat(characterInfo->materiaInfo2->materiaParameters->PtrEnumerable))
+        var materiaParameters = Enumerable.Empty<Ptr<MateriaParameterInfo>>();
+        if (characterInfo->materiaInfo0 != null)
+            materiaParameters = materiaParameters.Concat(characterInfo->materiaInfo0->materiaParameters->PtrEnumerable);
+        if (characterInfo->materiaInfo1 != null)
+            materiaParameters = materiaParameters.Concat(characterInfo->materiaInfo1->materiaParameters->PtrEnumerable);
+        if (characterInfo->materiaInfo2 != null)
+            materiaParameters = materiaParameters.Concat(characterInfo->materiaInfo2->materiaParameters->PtrEnumerable);
+
+        foreach (var p in materiaParameters)
         {
             var materiaParameter = p.ptr;
             switch (materiaParameter->type)
