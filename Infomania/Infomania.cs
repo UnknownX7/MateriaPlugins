@@ -171,7 +171,7 @@ public unsafe class Infomania : IMateriaPlugin
             screenInfo.Dispose();
     }
 
-    public static void BeginInfoWindow(string id)
+    public static void BeginInfoWindow(string id, Action? onDrawContextMenu = null)
     {
         if (!Config.InfoConfigs.TryGetValue(id, out var config))
         {
@@ -189,6 +189,8 @@ public unsafe class Infomania : IMateriaPlugin
 
         if (ImGui.BeginPopupContextWindow())
         {
+            onDrawContextMenu?.Invoke();
+
             if (ImGui.Selectable(config.Locked ? "Unlock" : "Lock"))
             {
                 config.Locked ^= true;

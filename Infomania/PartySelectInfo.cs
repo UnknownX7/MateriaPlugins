@@ -34,7 +34,7 @@ public unsafe class PartySelectInfo : ScreenInfo
                 var character = selectedParty->partyCharacterInfos->GetPtr(0);
                 if (character->characterId == 0) return;
                 Infomania.BeginInfoWindow("PartySelectInfo");
-                PartyEditInfo.DrawStats(character);
+                PartyEditInfo.DrawStats(new CharacterCalculator(character));
                 ImGui.End();
                 break;
             }
