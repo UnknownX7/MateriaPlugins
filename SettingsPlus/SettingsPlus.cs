@@ -1,4 +1,17 @@
 using ECGen.Generated;
+using ECGen.Generated.Command;
+using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.Enums;
+using ECGen.Generated.Command.KeyInput;
+using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Event;
+using ECGen.Generated.Command.OutGame.MultiBattle;
+using ECGen.Generated.Command.OutGame.Party;
+using ECGen.Generated.Command.OutGame.Synthesis;
+using ECGen.Generated.Command.UI;
+using ECGen.Generated.Command.Work;
+using ECGen.Generated.System.Collections.Generic;
+using ECGen.Generated.TMPro;
 using ImGuiNET;
 using Materia;
 using Materia.Attributes;
@@ -8,18 +21,6 @@ using Materia.Utilities;
 using System;
 using System.Linq;
 using System.Numerics;
-using ECGen.Generated.Command;
-using ECGen.Generated.Command.Battle;
-using ECGen.Generated.Command.Enums;
-using ECGen.Generated.Command.KeyInput;
-using ECGen.Generated.Command.OutGame;
-using ECGen.Generated.Command.OutGame.Party;
-using ECGen.Generated.Command.OutGame.Synthesis;
-using ECGen.Generated.Command.Work;
-using ECGen.Generated.System.Collections.Generic;
-using ECGen.Generated.Command.OutGame.MultiBattle;
-using ECGen.Generated.Command.OutGame.Event;
-using ECGen.Generated.Command.UI;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
 using SceneBehaviourManager = Materia.Game.SceneBehaviourManager;
@@ -65,6 +66,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         if (Config.EnableRememberLastSelectedMateriaRecipe)
             SynthesisSelectScreenSetupParameterCtorHook?.Enable();
+        if (Config.EnableSynthesisRarity)
+            RefreshSynthesisViewHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -394,6 +397,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Does not currently work with certain recipes!");
 
+        b = Config.EnableSynthesisRarity;
+        if (ImGui.Checkbox("Reveal Synthesis Rarity", ref b))
+        {
+            RefreshSynthesisViewHook?.Toggle();
+            Config.EnableSynthesisRarity = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Adds the rarity of a synthesis to its name");
+
         b = Config.EnableBattleReselection;
         if (ImGui.Checkbox("Auto Select Previous Battle", ref b))
         {
@@ -522,5 +534,26 @@ public unsafe class SettingsPlus : IMateriaPlugin
             setMute(audioManager->sEVolumeController, b, 0);
         if (audioManager->voiceVolumeController != null)
             setMute(audioManager->voiceVolumeController, b, 0);
+    }
+
+    [GameSymbol("TMPro.TMP_Text$$SetText")]
+    private static delegate* unmanaged<TMP_Text*, Unmanaged_String*, CBool, nint, void> tmpSetText;
+
+    private delegate void RefreshSynthesisViewDelegate(SynthesisCellView* synthesisCellView, nint method);
+    [GameSymbol("Command.OutGame.Synthesis.SynthesisCellView$$RefreshSynthesisView", EnableHook = false)]
+    private static IMateriaHook<RefreshSynthesisViewDelegate>? RefreshSynthesisViewHook;
+    private static void RefreshSynthesisViewDetour(SynthesisCellView* synthesisCellView, nint method)
+    {
+        RefreshSynthesisViewHook!.Original(synthesisCellView, method);
+
+        try
+        {
+            if (!Il2CppType<SynthesisWork.SynthesisStore>.Is(synthesisCellView->currentSynthesisCellModel->synthesisInfo->value, out var synthesisStore)) return;
+            tmpSetText((TMP_Text*)synthesisCellView->nameText, GameInterop.CreateString($"{(int)synthesisStore->qualityType}* {synthesisCellView->nameText->m_text->ToString()}"), true, 0);
+        }
+        catch (Exception e)
+        {
+            PluginServiceManager.Log.Error(e);
+        }
     }
 }
