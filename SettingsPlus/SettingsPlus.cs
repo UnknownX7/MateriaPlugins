@@ -1,6 +1,8 @@
 using ECGen.Generated;
 using ECGen.Generated.Command;
+using ECGen.Generated.Command.ApiNetwork.Api;
 using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.Entity;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame;
@@ -10,6 +12,7 @@ using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.Work;
+using ECGen.Generated.Google.Protobuf.Collections;
 using ECGen.Generated.System.Collections.Generic;
 using ECGen.Generated.TMPro;
 using ImGuiNET;
@@ -18,9 +21,13 @@ using Materia.Attributes;
 using Materia.Game;
 using Materia.Plugin;
 using Materia.Utilities;
+using Newtonsoft.Json.Linq;
 using System;
+using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using BattleSystem = Materia.Game.BattleSystem;
 using ModalManager = Materia.Game.ModalManager;
 using SceneBehaviourManager = Materia.Game.SceneBehaviourManager;
@@ -328,7 +335,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
             res[1] = Math.Min(Math.Max(res[1], 540), 10000);
         }
 
-        var b = Config.EnableStaticCamera;
+        var b = Config.EnableAudioFocus;
+        if (ImGui.Checkbox("Enable Audio Focus", ref b))
+        {
+            Config.EnableAudioFocus = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Toggles the audio depending on game window focus");
+
+        b = Config.EnableStaticCamera;
         if (ImGui.Checkbox("Enable Static Camera", ref b))
         {
             SetupStandardCameraHook?.Toggle();
@@ -370,7 +385,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.EnableBetterWeaponNotificationIcon = b;
             Config.Save();
         }
-        ImGuiEx.SetItemTooltip("Does not consider character specific parts when displaying if a weapon\ncan be overboosted and only displays the notification icon if it can.\nAlso disables the overboost notification on Highwind collection items");
+        ImGuiEx.SetItemTooltip("Does not consider character specific parts when displaying if a weapon\ncan be overboosted and only displays the notification icon if it can.\nAlso disables the overboost notification on Highwind collection items.");
 
         b = Config.DisableHiddenData;
         if (ImGui.Checkbox("Reveal Hidden Dungeon Bosses", ref b))
@@ -414,13 +429,10 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
-        b = Config.EnableAudioFocus;
-        if (ImGui.Checkbox("Enable Audio Focus", ref b))
-        {
-            Config.EnableAudioFocus = b;
-            Config.Save();
-        }
-        ImGuiEx.SetItemTooltip("Toggles the audio depending on game window focus");
+        b = ApiRequestAsync9Hook?.IsEnabled ?? false;
+        if (ImGui.Checkbox("Save Account Data On Next Login", ref b))
+            ApiRequestAsync9Hook?.Toggle();
+        ImGuiEx.SetItemTooltip("Saves account data to Materia's folder in \"accountData.json\"\nupon next login from the title screen. This setting is not saved.");
 
         ImGui.End();
     }
@@ -555,5 +567,76 @@ public unsafe class SettingsPlus : IMateriaPlugin
         {
             PluginServiceManager.Log.Error(e);
         }
+    }
+
+    private delegate void ApiRequestAsync9Delegate(void* a1, BaseResponse* baseResponse, nint method);
+    [GameSymbol("Command.ApiNetwork.Api.ApiCommon.<>c__DisplayClass9_0$$<RequestAsync>b__1", EnableHook = false)]
+    private static IMateriaHook<ApiRequestAsync9Delegate>? ApiRequestAsync9Hook;
+    private static void ApiRequestAsync9Detour(void* a1, BaseResponse* baseResponse, nint method)
+    {
+        ApiRequestAsync9Hook!.Original(a1, baseResponse, method);
+        if (!Il2CppType<ApiResponse>.Is(baseResponse, out var apiResponse) || apiResponse->common == null || apiResponse->common->user->update == null || apiResponse->postPvtUserTitle == null) return;
+        Util.SaveJsonToFile(Path.Combine(Util.MateriaDirectory.FullName, "accountData.json"), ConvertCommonResponseToJObject(apiResponse->common));
+        ApiRequestAsync9Hook.Disable();
+    }
+
+    private static JObject ConvertCommonResponseToJObject(CommonResponse* commonResponse)
+    {
+        var json = new JObject();
+
+        try
+        {
+            var tables = *commonResponse->user->update;
+            foreach (var f in tables.GetType().GetFields().Where(f => f.FieldType.HasElementType))
+            {
+                var t = f.FieldType.GetElementType()!;
+                if (!t.IsGenericType || t.GenericTypeArguments.Length != 1) continue;
+
+                var v = f.GetValue(tables);
+                if (v is not Pointer p) continue;
+
+                var ptr = (RepeatedField<nint>*)Pointer.Unbox(p);
+                if (ptr == null || ptr->array->size == 0) continue;
+
+                var subJson = new JArray();
+                var subType = t.GenericTypeArguments.First();
+                var subFields = subType.GetFields().Where(sF => sF.Name != "userId").ToArray();
+                foreach (var subPtr in ptr->array->Enumerable)
+                {
+                    if (Marshal.PtrToStructure(subPtr, subType) is not { } o) continue;
+
+                    var item = new JObject();
+                    foreach (var sF in subFields)
+                    {
+                        var sFType = sF.FieldType;
+                        if (sFType == typeof(nint)) continue;
+
+                        if (!sFType.HasElementType)
+                        {
+                            var sV = sF.GetValue(o);
+                            item[sF.Name] = sV != null ? JToken.FromObject(sV) : null;
+                        }
+                        else
+                        {
+                            var elementType = sFType.GetElementType();
+                            if (elementType != typeof(Unmanaged_String) || sF.GetValue(o) is not { } sV) continue;
+
+                            var strPtr = (Unmanaged_String*)Pointer.Unbox(sV);
+                            if (strPtr == null) continue;
+
+                            item[sF.Name] = strPtr->ToString();
+                        }
+                    }
+                    subJson.Add(item);
+                }
+                json[f.Name] = subJson;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
+
+        return json;
     }
 }

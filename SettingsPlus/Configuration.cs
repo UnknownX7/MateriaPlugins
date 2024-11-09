@@ -10,9 +10,9 @@ public class Configuration : PluginConfiguration
     public bool DisableHiddenData { get; set; }
     public bool EnableSkipBattleCutscenes { get; set; }
     public bool EnableRememberLastSelectedMateriaRecipe { get; set; }
-    public bool EnableSynthesisRarity { get; set; }
     public bool DisableRenamedRecommendedParty { get; set; }
     public bool DisableContinueModal { get; set; }
     public bool EnableBattleReselection { get; set; }
     public bool EnableAudioFocus { get; set; }
+    public bool EnableSynthesisRarity { get; set; }
 }
