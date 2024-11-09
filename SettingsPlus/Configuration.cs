@@ -13,4 +13,5 @@ public class Configuration : PluginConfiguration
     public bool DisableRenamedRecommendedParty { get; set; }
     public bool DisableContinueModal { get; set; }
     public bool EnableBattleReselection { get; set; }
+    public bool EnableAudioFocus { get; set; }
 }

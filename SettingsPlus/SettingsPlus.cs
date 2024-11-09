@@ -73,6 +73,7 @@ public unsafe class SettingsPlus : IMateriaPlugin
     {
         UpdateUISettings();
         UpdateBattleTransitionInfo();
+        UpdateAudioFocus();
     }
 
     public void UpdateUISettings()
@@ -278,6 +279,15 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
     }
 
+    private static void UpdateAudioFocus()
+    {
+        if (!Config.EnableAudioFocus) return;
+
+        var device = GameInterop.GetSingletonMonoBehaviourInstance<Device>();
+        if (device != null)
+            SetMute(device->focusMode->GetValue() == Device.FocusMode.Off);
+    }
+
     private static void TransitionToEventMultiBattle(ScreenBase<ScreenSetupParameter>* screen, long id)
     {
         var parent = screen->@class->parent;
@@ -392,6 +402,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
+        b = Config.EnableAudioFocus;
+        if (ImGui.Checkbox("Enable Audio Focus", ref b))
+        {
+            Config.EnableAudioFocus = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Toggles the audio depending on game window focus");
+
         ImGui.End();
     }
 
@@ -488,5 +506,21 @@ public unsafe class SettingsPlus : IMateriaPlugin
         HasKeyItemEvolutionItemHook?.Enable();
         HighwindKeyItemSelectUpdateAllModelHook!.Original(o, method);
         HasKeyItemEvolutionItemHook?.Disable();
+    }
+
+    [GameSymbol("Command.AudioVolumeController$$SetMute")]
+    private static delegate* unmanaged<void*, CBool, nint, void> setMute;
+
+    private static void SetMute(bool b)
+    {
+        var audioManager = GameInterop.GetSingletonMonoBehaviourInstance<AudioManager>();
+        if (audioManager == null) return;
+
+        if (audioManager->bGMVolumeController != null)
+            setMute(audioManager->bGMVolumeController, b, 0);
+        if (audioManager->sEVolumeController != null)
+            setMute(audioManager->sEVolumeController, b, 0);
+        if (audioManager->voiceVolumeController != null)
+            setMute(audioManager->voiceVolumeController, b, 0);
     }
 }
