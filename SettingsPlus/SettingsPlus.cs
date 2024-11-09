@@ -75,6 +75,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
             SynthesisSelectScreenSetupParameterCtorHook?.Enable();
         if (Config.EnableSynthesisRarity)
             RefreshSynthesisViewHook?.Enable();
+        if (Config.InterjectionDisplayLimit != 3)
+            GetInterjectionDisplayLimitHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -335,6 +337,19 @@ public unsafe class SettingsPlus : IMateriaPlugin
             res[1] = Math.Min(Math.Max(res[1], 540), 10000);
         }
 
+        var i = Config.InterjectionDisplayLimit;
+        ImGui.SetNextItemWidth(ImGui.GetFrameHeight());
+        if (ImGui.DragInt("Login Popup Limit", ref i, 0.1f, 0, 30))
+        {
+            if (i != 3)
+                GetInterjectionDisplayLimitHook?.Enable();
+            else
+                GetInterjectionDisplayLimitHook?.Disable();
+            Config.InterjectionDisplayLimit = i;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Changes the max number of daily popups (E.g. \"New Draw Available!\") (Default: 3)");
+
         var b = Config.EnableAudioFocus;
         if (ImGui.Checkbox("Enable Audio Focus", ref b))
         {
@@ -568,6 +583,11 @@ public unsafe class SettingsPlus : IMateriaPlugin
             PluginServiceManager.Log.Error(e);
         }
     }
+
+    private delegate int GetInterjectionDisplayLimitDelegate(ConfigWork.ConfigStore* configStore, nint method);
+    [GameSymbol("Command.Work.ConfigWork.ConfigStore$$get_InterjectionDisplayLimit", EnableHook = false)]
+    private static IMateriaHook<GetInterjectionDisplayLimitDelegate>? GetInterjectionDisplayLimitHook;
+    private static int GetInterjectionDisplayLimitDetour(ConfigWork.ConfigStore* configStore, nint method) => Config.InterjectionDisplayLimit;
 
     private delegate void ApiRequestAsync9Delegate(void* a1, BaseResponse* baseResponse, nint method);
     [GameSymbol("Command.ApiNetwork.Api.ApiCommon.<>c__DisplayClass9_0$$<RequestAsync>b__1", EnableHook = false)]

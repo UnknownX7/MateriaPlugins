@@ -15,4 +15,5 @@ public class Configuration : PluginConfiguration
     public bool EnableBattleReselection { get; set; }
     public bool EnableAudioFocus { get; set; }
     public bool EnableSynthesisRarity { get; set; }
+    public int InterjectionDisplayLimit { get; set; } = 3;
 }
