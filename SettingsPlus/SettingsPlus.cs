@@ -50,8 +50,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
         if (Config.EnableStaticCamera)
             SetupStandardCameraHook?.Enable();
-        if (Config.DisableActionCamera)
-            IsValidActionCameraWaitingTimeHook?.Enable();
         if (Config.DisableCharacterParts)
             AdequatelyWeaponMedalItemHook?.Enable();
         if (Config.EnableBetterWeaponNotificationIcon)
@@ -325,14 +323,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
 
-        b = Config.DisableActionCamera;
-        if (ImGui.Checkbox("Disable Action Camera", ref b))
-        {
-            IsValidActionCameraWaitingTimeHook?.Toggle();
-            Config.DisableActionCamera = b;
-            Config.Save();
-        }
-
         b = Config.DisableCharacterParts;
         if (ImGui.Checkbox("Disable Character Parts", ref b))
         {
@@ -418,11 +408,6 @@ public unsafe class SettingsPlus : IMateriaPlugin
     private static IMateriaHook<SetupStandardCameraDelegate>? SetupStandardCameraHook;
     private static void SetupStandardCameraDetour(nint battleSystem, int cameraGroup, nint cameraName, CBool isDynamicCamera, nint method) =>
         SetupStandardCameraHook!.Original(battleSystem, cameraGroup, cameraName, false, method);
-
-    private delegate CBool IsValidActionCameraWaitingTimeDelegate(nint cameraManager, nint method);
-    [GameSymbol("Command.Battle.CameraManager$$IsValidActionCameraWaitingTime", EnableHook = false)]
-    private static IMateriaHook<IsValidActionCameraWaitingTimeDelegate>? IsValidActionCameraWaitingTimeHook;
-    private static CBool IsValidActionCameraWaitingTimeDetour(nint cameraManager, nint method) => true;
 
     private delegate void AdequatelyWeaponMedalItemDelegate(nint weaponEnhancePanel, Unmanaged_List<ItemCountSelectModel>* weaponMedalModels, long gil, nint method);
     [GameSymbol("Command.OutGame.Weapon.WeaponEnhancePanel$$AdequatelyWeaponMedalItem", EnableHook = false)]
