@@ -60,13 +60,23 @@ public unsafe class HomeInfo : ScreenInfo
             ImGui.Spacing();
         }
 
-        DrawResetTimer("Dailies", 4, 12, IsMissionBonusObtained(200002)); // Daily Mission Reset
-        if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Mission, 200002);
+        var dailiesDone = IsMissionBonusObtained(200002);
+        var guildDailiesDone = IsMissionGroupCleared(1300001);
+        if (!dailiesDone || guildDailiesDone)
+        {
+            DrawResetTimer("Dailies", 4, 12, dailiesDone); // Daily Mission Reset
+            if (ImGuiEx.IsItemReleased())
+                ScreenManager.TransitionAsync(TransitionType.Mission, 200002);
+        }
+        else
+        {
+            DrawResetTimer("Guild Dailies", 4, 12, guildDailiesDone);
+            if (ImGuiEx.IsItemReleased())
+                ScreenManager.TransitionAsync(TransitionType.Mission, 1300001);
+        }
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
         if (ImGuiEx.IsItemReleased())
             ScreenManager.TransitionAsync(TransitionType.Shop, 101067);
-        //DrawResetTimer("Guild Energy", 18, 0);
         DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300002)); // Weekly Mission Reset
         if (ImGuiEx.IsItemReleased())
             ScreenManager.TransitionAsync(TransitionType.Mission, 300002);
@@ -143,6 +153,18 @@ public unsafe class HomeInfo : ScreenInfo
         while (WorkManager.GetMissionBonusStore(++baseId) is var missionBonusStore && missionBonusStore != null)
             if (!missionBonusStore->isReceived) return false;
         return true;
+    }
+
+    [GameSymbol("Command.Work.MissionWork$$GetMissionGroupInfo")]
+    private static delegate* unmanaged<MissionWork*, long, nint, IMissionGroupInfo*> getMissionGroupInfo;
+
+    [GameSymbol("Command.Work.MissionWorkExtensions$$IsGroupMissionClear")]
+    private static delegate* unmanaged<IMissionGroupInfo*, nint, CBool> isGroupMissionClear;
+
+    private static bool IsMissionGroupCleared(long id)
+    {
+        var missionGroup = getMissionGroupInfo(WorkManager.NativePtr->mission, id, 0);
+        return missionGroup != null && isGroupMissionClear(missionGroup, 0);
     }
 
     private static TimeSpan GetTimeUntilCraftFinished()
