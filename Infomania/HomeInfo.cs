@@ -8,11 +8,13 @@ using ECGen.Generated.Command.OutGame.Home;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.System.Collections.Generic;
 using ImGuiNET;
+using Materia.Attributes;
 using Materia.Game;
 using WorkManager = Materia.Game.WorkManager;
 
 namespace Infomania;
 
+[Injection]
 public unsafe class HomeInfo : ScreenInfo
 {
     private static readonly Vector4 green = new(0.4f, 1, 0.4f, 1);
@@ -87,6 +89,10 @@ public unsafe class HomeInfo : ScreenInfo
 
         ImGui.Spacing();
         ImGui.Spacing();
+
+        var dailyAdViews = getViewCount(WorkManager.NativePtr->advertisement, 0);
+        if (dailyAdViews < 2)
+            ImGui.TextUnformatted($"Daily Ads Remaining: {2 - dailyAdViews}");
 
         var expUntil = WorkManager.NextRequiredUserExp - WorkManager.NativePtr->user->userStatusStore->userStatus->exp;
         ImGui.TextUnformatted($"Stamina To Lv.: {(expUntil + 9) / 10}");
@@ -194,4 +200,7 @@ public unsafe class HomeInfo : ScreenInfo
         }
         return 0;
     }
+
+    [GameSymbol("Command.Work.AdvertisementWork$$GetViewCount")]
+    private static delegate* unmanaged<AdvertisementWork*, nint, long> getViewCount;
 }
