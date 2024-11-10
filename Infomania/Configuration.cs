@@ -17,5 +17,6 @@ public class Configuration : PluginConfiguration
     public bool EnableGiftInfo { get; set; }
     public bool EnableBossDetailInfo { get; set; }
     public bool EnableWeaponDetailInfo { get; set; }
+    public bool EnableItemDetailInfo { get; set; }
     public Dictionary<string, InfoConfiguration> InfoConfigs { get; set; } = [];
 }

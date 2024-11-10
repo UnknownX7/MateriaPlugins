@@ -159,6 +159,13 @@ public unsafe class Infomania : IMateriaPlugin
             Config.Save();
         }
 
+        b = Config.EnableItemDetailInfo;
+        if (ImGui.Checkbox("Enable Weapon Part Info", ref b))
+        {
+            Config.EnableItemDetailInfo = b;
+            Config.Save();
+        }
+
         ImGui.End();
     }
 
