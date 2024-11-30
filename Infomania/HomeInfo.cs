@@ -143,7 +143,21 @@ public unsafe class HomeInfo : ScreenInfo
     private static void DrawResetTimer(string name, long resetId, int hourColorThreshold, bool finished = false)
     {
         const int padding = 21;
-        var remainingTime = WorkManager.GetTimeUntilReset(resetId);
+        var remainingTime = TimeSpan.Zero;
+        if (resetId != 12)
+        {
+            remainingTime = WorkManager.GetTimeUntilReset(resetId);
+        }
+        else
+        {
+            var resetStore = WorkManager.GetResetStore(resetId);
+            var utcNow = DateTimeOffset.UtcNow;
+            var offsetUtcNow = utcNow.AddMilliseconds(-resetStore->masterReset->resetOffsetDatetime);
+            var nextMonth = offsetUtcNow.Month != 12
+                ? new DateTimeOffset(offsetUtcNow.Year, offsetUtcNow.Month + 1, 1, 0, 0, 0, TimeSpan.Zero).AddMilliseconds(resetStore->masterReset->resetOffsetDatetime)
+                : new DateTimeOffset(offsetUtcNow.Year + 1, 1, 1, 0, 0, 0, TimeSpan.Zero).AddMilliseconds(resetStore->masterReset->resetOffsetDatetime);
+            remainingTime = nextMonth - utcNow;
+        }
         DrawTimer(name, remainingTime, false, padding, hourColorThreshold, finished);
     }
 
