@@ -14,7 +14,7 @@ public abstract class Info
 {
     public abstract bool Enabled { get; }
     public bool LastFrameActive { get; set; }
-    public virtual void Activate() { }
+    public bool TempHidden { get; set; }
     public virtual void Update() { }
     public virtual void Dispose() { }
 }
@@ -23,12 +23,14 @@ public abstract class ScreenInfo : Info
 {
     public abstract Type[] ValidScreens { get; }
     public virtual bool ShowOnModal => false;
+    public virtual void Activate(Screen screen) { }
     public abstract void Draw(Screen screen);
 }
 
 public abstract class ModalInfo : Info
 {
     public abstract Type[] ValidModals { get; }
+    public virtual void Activate(Modal modal) { }
     public abstract void Draw(Modal modal);
 }
 
@@ -40,6 +42,7 @@ public unsafe class Infomania : IMateriaPlugin
     private readonly List<ScreenInfo> screenInfos = Assembly.GetExecutingAssembly().GetTypes<ScreenInfo>().Select(t => (ScreenInfo?)Activator.CreateInstance(t)).Where(i => i != null).ToList()!;
     private readonly List<ModalInfo> modalInfos = Assembly.GetExecutingAssembly().GetTypes<ModalInfo>().Select(t => (ModalInfo?)Activator.CreateInstance(t)).Where(i => i != null).ToList()!;
 
+    private static Info? currentInfo = null;
     private bool draw = false;
 
     public Infomania(PluginServiceManager pluginServiceManager)
@@ -80,11 +83,14 @@ public unsafe class Infomania : IMateriaPlugin
 
             if (!modalInfo.LastFrameActive)
             {
-                modalInfo.Activate();
+                modalInfo.Activate(modal!);
                 modalInfo.LastFrameActive = true;
+                modalInfo.TempHidden = false;
             }
 
-            modalInfo.Draw(modal!);
+            currentInfo = modalInfo;
+            if (!modalInfo.TempHidden)
+                modalInfo.Draw(modal!);
         }
 
         var screen = ScreenManager.Instance?.CurrentScreen;
@@ -100,12 +106,16 @@ public unsafe class Infomania : IMateriaPlugin
 
             if (!screenInfo.LastFrameActive)
             {
-                screenInfo.Activate();
+                screenInfo.Activate(screen!);
                 screenInfo.LastFrameActive = true;
+                screenInfo.TempHidden = false;
             }
 
-            if (!isModalActive || screenInfo.ShowOnModal)
+            if (!screenInfo.TempHidden && (!isModalActive || screenInfo.ShowOnModal))
+            {
+                currentInfo = screenInfo;
                 screenInfo.Draw(screen!);
+            }
         }
 
         if (draw)
@@ -203,6 +213,9 @@ public unsafe class Infomania : IMateriaPlugin
                 config.Locked ^= true;
                 Config.Save();
             }
+
+            if (ImGui.Selectable("Hide"))
+                currentInfo!.TempHidden = true;
 
             var f = config.Scale;
             ImGui.SetNextItemWidth(64 * ImGuiEx.Scale);

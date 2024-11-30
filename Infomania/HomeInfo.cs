@@ -25,7 +25,7 @@ public unsafe class HomeInfo : ScreenInfo
 
     private long freeGachaAvailable;
 
-    public override void Activate() => freeGachaAvailable = GetFreeGachaAvailable();
+    public override void Activate(Screen screen) => freeGachaAvailable = GetFreeGachaAvailable();
 
     public override void Draw(Screen screen)
     {
