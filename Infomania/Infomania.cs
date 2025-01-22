@@ -124,7 +124,7 @@ public unsafe class Infomania : IMateriaPlugin
 
     private void DrawSettings()
     {
-        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 200) * ImGuiEx.Scale, new Vector2(10000));
+        ImGui.SetNextWindowSizeConstraints(new Vector2(250, 220) * ImGuiEx.Scale, new Vector2(10000));
         ImGui.Begin("Infomania", ref draw);
 
         var b = Config.EnableHomeInfo;
@@ -173,6 +173,13 @@ public unsafe class Infomania : IMateriaPlugin
         if (ImGui.Checkbox("Enable Weapon Part Info", ref b))
         {
             Config.EnableItemDetailInfo = b;
+            Config.Save();
+        }
+
+        b = Config.EnableUserInfo;
+        if (ImGui.Checkbox("Enable Profile Info (BETA)", ref b))
+        {
+            Config.EnableUserInfo = b;
             Config.Save();
         }
 
