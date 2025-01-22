@@ -72,8 +72,6 @@ public class CharacterCalculator
         public unsafe SkillInfo(BaseSkillInfo* baseSkillInfo, WeaponMateriaSupportSlotInfo* materiaSupportSlot, Unmanaged_Array<WeaponAttachmentEffectInfo>* brands)
         {
             baseAttackType = baseSkillInfo->baseAttackType;
-            materiaMultiplier = ToMultiplier(materiaSupportSlot);
-            brandMultiplier = ToMultiplier(brands);
 
             var foundDamageEffect = false;
             foreach (var p in baseSkillInfo->skillEffectDetailInfos->PtrEnumerable)
@@ -153,6 +151,9 @@ public class CharacterCalculator
                         break;
                 }
             }
+
+            materiaMultiplier = ToMultiplier(materiaSupportSlot);
+            brandMultiplier = ToMultiplier(brands);
         }
 
         private unsafe Multiplier ToMultiplier(Unmanaged_Array<WeaponAttachmentEffectInfo>* brands)
