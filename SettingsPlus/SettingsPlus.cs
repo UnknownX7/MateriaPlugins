@@ -6,6 +6,7 @@ using ECGen.Generated.Command.Entity;
 using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.KeyInput;
 using ECGen.Generated.Command.OutGame;
+using ECGen.Generated.Command.OutGame.Chocobo;
 using ECGen.Generated.Command.OutGame.Event;
 using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Party;
@@ -77,6 +78,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
             RefreshSynthesisViewHook?.Enable();
         if (Config.InterjectionDisplayLimit != 3)
             GetInterjectionDisplayLimitHook?.Enable();
+        if (Config.EnableQuickChocoboosters)
+            ChocoboExpeditionShortenItemModalPresenterSetupHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -444,6 +447,16 @@ public unsafe class SettingsPlus : IMateriaPlugin
         }
         ImGuiEx.SetItemTooltip("Transitions back to the party selection screen after most battles");
 
+        b = Config.EnableQuickChocoboosters;
+        if (ImGui.Checkbox("Enable Quick Chocoboosters", ref b))
+        {
+            ChocoboExpeditionShortenItemModalPresenterSetupHook?.Toggle();
+            ChocoboExpeditionShortenItemModalPresenterRefreshHook?.Disable();
+            Config.EnableQuickChocoboosters = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Sets the default number of selected chocoboosters to the max without overcapping");
+
         b = ApiRequestAsync9Hook?.IsEnabled ?? false;
         if (ImGui.Checkbox("Save Account Data On Next Login", ref b))
             ApiRequestAsync9Hook?.Toggle();
@@ -588,6 +601,25 @@ public unsafe class SettingsPlus : IMateriaPlugin
     [GameSymbol("Command.Work.ConfigWork.ConfigStore$$get_InterjectionDisplayLimit", EnableHook = false)]
     private static IMateriaHook<GetInterjectionDisplayLimitDelegate>? GetInterjectionDisplayLimitHook;
     private static int GetInterjectionDisplayLimitDetour(ConfigWork.ConfigStore* configStore, nint method) => Config.InterjectionDisplayLimit;
+
+    private delegate void ChocoboExpeditionShortenItemModalPresenterSetupDelegate(ChocoboExpeditionShortenItemModalPresenter* chocoboExpeditionShortenItemModalPresenter, ItemCountSelectModel* itemModel, IChocoboExpeditionDeckInfo* chocoboExpeditionDeckInfo, nint method);
+    [GameSymbol("Command.OutGame.Chocobo.ChocoboExpeditionShortenItemModalPresenter$$Setup", EnableHook = false)]
+    private static IMateriaHook<ChocoboExpeditionShortenItemModalPresenterSetupDelegate>? ChocoboExpeditionShortenItemModalPresenterSetupHook;
+    private static void ChocoboExpeditionShortenItemModalPresenterSetupDetour(ChocoboExpeditionShortenItemModalPresenter* chocoboExpeditionShortenItemModalPresenter, ItemCountSelectModel* itemModel, IChocoboExpeditionDeckInfo* chocoboExpeditionDeckInfo, nint method)
+    {
+        ChocoboExpeditionShortenItemModalPresenterRefreshHook?.Enable();
+        ChocoboExpeditionShortenItemModalPresenterSetupHook!.Original(chocoboExpeditionShortenItemModalPresenter, itemModel, chocoboExpeditionDeckInfo, method);
+    }
+
+    private delegate void ChocoboExpeditionShortenItemModalPresenterRefreshDelegate(ChocoboExpeditionShortenItemModalPresenter* chocoboExpeditionShortenItemModalPresenter, nint method);
+    [GameSymbol("Command.OutGame.Chocobo.ChocoboExpeditionShortenItemModalPresenter$$Refresh", EnableHook = false)]
+    private static IMateriaHook<ChocoboExpeditionShortenItemModalPresenterRefreshDelegate>? ChocoboExpeditionShortenItemModalPresenterRefreshHook;
+    private static void ChocoboExpeditionShortenItemModalPresenterRefreshDetour(ChocoboExpeditionShortenItemModalPresenter* chocoboExpeditionShortenItemModalPresenter, nint method)
+    {
+        chocoboExpeditionShortenItemModalPresenter->itemModel->selectedCount = Math.Min(chocoboExpeditionShortenItemModalPresenter->userRemainUsableItemCount, chocoboExpeditionShortenItemModalPresenter->itemModel->displayMaxCount - 1);
+        ChocoboExpeditionShortenItemModalPresenterRefreshHook!.Original(chocoboExpeditionShortenItemModalPresenter, method);
+        ChocoboExpeditionShortenItemModalPresenterRefreshHook.Disable();
+    }
 
     private delegate void ApiRequestAsync9Delegate(void* a1, BaseResponse* baseResponse, nint method);
     [GameSymbol("Command.ApiNetwork.Api.ApiCommon.<>c__DisplayClass9_0$$<RequestAsync>b__1", EnableHook = false)]

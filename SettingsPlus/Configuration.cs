@@ -16,4 +16,5 @@ public class Configuration : PluginConfiguration
     public bool EnableAudioFocus { get; set; }
     public bool EnableSynthesisRarity { get; set; }
     public int InterjectionDisplayLimit { get; set; } = 3;
+    public bool EnableQuickChocoboosters { get; set; }
 }
