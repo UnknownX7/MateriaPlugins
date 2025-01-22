@@ -51,6 +51,7 @@ public unsafe class Automaton : IMateriaPlugin
     private static CactuarFarmMode cactuarFarmMode = CactuarFarmMode.Disabled;
     private static bool exit = false;
     private static long prevSoloAreaBattleID = 0;
+    private static bool prevBattleIDIsEvent = false;
     private bool draw = false;
     private bool repeating = false;
     private int repeatDelayMs;
@@ -97,8 +98,10 @@ public unsafe class Automaton : IMateriaPlugin
                     .Where(p => p.ptr->isActive)
                     .Any(p => !GameInterop.IsGameObjectActive(p.ptr->partyMemberInfoPlate->eventBonusObject)))
                 GameInterop.TapKeyAction(KeyAction.Back);
-            else if (matchingRoomScreen.NativePtr->view->readyButton->isEnable && matchingRoomScreen.NativePtr->view->readyButton->m_Interactable)
+            else if (GameInterop.IsGameObjectActive(matchingRoomScreen.NativePtr->view->readyButton) && matchingRoomScreen.NativePtr->view->readyButton->isEnable && matchingRoomScreen.NativePtr->view->readyButton->m_Interactable)
                 GameInterop.TapButton(matchingRoomScreen.NativePtr->view->readyButton, true, 10_000);
+            else if (GameInterop.IsGameObjectActive(matchingRoomScreen.NativePtr->view->playBattleButton) && matchingRoomScreen.NativePtr->view->playBattleButton->isEnable && matchingRoomScreen.NativePtr->view->playBattleButton->m_Interactable)
+                GameInterop.TapButton(matchingRoomScreen.NativePtr->view->playBattleButton, true, 1_000);
         }
         else if (ScreenManager.Instance.GetCurrentScreen<MultiAreaBattlePartySelectPresenter>() is { } multiPartySelect)
         {
@@ -120,7 +123,7 @@ public unsafe class Automaton : IMateriaPlugin
         }
         else if (prevSoloAreaBattleID > 0)
         {
-            ScreenManager.TransitionAsync(TransitionType.AreaSoloBattle, prevSoloAreaBattleID);
+            ScreenManager.TransitionAsync(prevBattleIDIsEvent ? TransitionType.EventSoloBattle : TransitionType.AreaSoloBattle, prevSoloAreaBattleID);
             prevSoloAreaBattleID = 0;
         }
     }
@@ -182,13 +185,32 @@ public unsafe class Automaton : IMateriaPlugin
             || setup->battleModeType != BattleModeType.Normal)
             return;
 
-        var areaID = setup->areaBattleId;
-        if (areaID == 0) return;
-
-        var rareWaveID = battleSystem.NativePtr->resumeRareWaveInfo != null ? battleSystem.NativePtr->resumeRareWaveInfo->rareWaveId : 0;
-        if (rareWaveID != 0)
+        long areaID;
+        if (setup->areaBattleId != 0)
         {
-            var rareType = (BattleRareWaveType)(WorkManager.GetRareWaveStore(rareWaveID) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0);
+            areaID = setup->areaBattleId;
+            prevBattleIDIsEvent = false;
+        }
+        else if (setup->eventAreaBattleId != 0)
+        {
+            areaID = setup->eventAreaBattleId;
+            prevBattleIDIsEvent = true;
+        }
+        else
+        {
+            return;
+        }
+
+        var resumeRareWaveInfo = battleSystem.NativePtr->resumeRareWaveInfo;
+        if (resumeRareWaveInfo != null && resumeRareWaveInfo->rareWaveId != 0)
+        {
+
+            var rareType = resumeRareWaveInfo->version switch
+            {
+                BattleRareWaveVersion.Version1 => (BattleRareWaveType)(WorkManager.GetRareWaveStore(resumeRareWaveInfo->rareWaveId) is var rareWaveStore && rareWaveStore != null ? rareWaveStore->masterBattleRareWave->battleRareWaveType : 0),
+                _ => BattleRareWaveType.Normal
+            };
+
             switch (cactuarFarmMode)
             {
                 case CactuarFarmMode.All:
@@ -241,13 +263,22 @@ public unsafe class Automaton : IMateriaPlugin
                     return 1;
                 }
             }
-            else if (cactuarFarmMode != CactuarFarmMode.Disabled
-                && modalManager.GetCurrentModal<SoloAreaBattleResultModalPresenter>() is { } soloModal
-                && Il2CppType<AreaBattleWork.SoloAreaBattleStore>.Is(soloModal.NativePtr->soloAreaBattleInfo, out var store)
-                && store->masterSoloAreaBattle->staminaCost != 0
-                && GameInterop.IsGameObjectActive(soloModal.NativePtr->view->staminaBoostButton))
+            else if (cactuarFarmMode != CactuarFarmMode.Disabled)
             {
-                soloModal.NativePtr->nextBattleStaminaBoostType = convertStaminaBoostTypeIfNeeded(StaminaBoostType.Normal3, 0);
+                if (modalManager.GetCurrentModal<SoloAreaBattleResultModalPresenter>() is { } soloModal
+                    && Il2CppType<AreaBattleWork.SoloAreaBattleStore>.Is(soloModal.NativePtr->soloAreaBattleInfo, out var soloStore)
+                    && soloStore->masterSoloAreaBattle->staminaCost != 0
+                    && GameInterop.IsGameObjectActive(soloModal.NativePtr->view->staminaBoostButton))
+                {
+                    soloModal.NativePtr->nextBattleStaminaBoostType = convertStaminaBoostTypeIfNeeded(StaminaBoostType.Normal3, 0);
+                }
+                else if (modalManager.GetCurrentModal<EventSoloAreaBattleResultModalPresenter>() is { } eventSoloModal
+                    && Il2CppType<EventWork.EventSoloBattleStore>.Is(eventSoloModal.NativePtr->eventSoloBattleInfo, out var eventStore)
+                    && eventStore->masterEventSoloBattle->staminaCost != 0
+                    && GameInterop.IsGameObjectActive(eventSoloModal.NativePtr->view->staminaBoostButton))
+                {
+                    eventSoloModal.NativePtr->nextBattleStaminaBoostType = convertStaminaBoostTypeIfNeeded(StaminaBoostType.Normal3, 0);
+                }
             }
 
             GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
