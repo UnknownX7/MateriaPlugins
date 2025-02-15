@@ -25,7 +25,8 @@ public unsafe class UserInfo : ModalInfo
         //[Display(Name = "")]
         Items,
         Materia,
-        HighwindBattle
+        HighwindBattle,
+        Gacha
     }
 
     private ProfileDetailType selectedDetailType;
@@ -65,6 +66,9 @@ public unsafe class UserInfo : ModalInfo
                 break;
             case ProfileDetailType.HighwindBattle:
                 DrawHighwindBattleDetails();
+                break;
+            case ProfileDetailType.Gacha:
+                DrawGachaDetails();
                 break;
         }
         ImGui.EndChild();
@@ -153,6 +157,102 @@ public unsafe class UserInfo : ModalInfo
                 : ((HighwindBattleReleaseDirectionType)highwindBattleStore->masterHighwindBattle->highwindBattleReleaseDirectionType).ToString());
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(highwindBattleStore->winCount.ToString());
+        }
+
+        ImGui.EndTable();
+    }
+
+    private static long totalDraws = 0L;
+    private static long totalFreeDraws = 0L;
+    private static long totalTicketDraws = 0L;
+    private static long totalCrystals = 0L;
+    private static void DrawGachaDetails()
+    {
+        ImGui.TextUnformatted($"Total Draws: {totalDraws}");
+        ImGui.TextUnformatted($"Total Free Draws: {totalFreeDraws}");
+        ImGui.TextUnformatted($"Total Ticket Draws: {totalTicketDraws}");
+        ImGui.TextUnformatted($"Total Crystals Used: {totalCrystals}");
+
+        if (!ImGui.BeginTable("GachaTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollY)) return;
+
+        totalDraws = 0L;
+        totalFreeDraws = 0L;
+        totalTicketDraws = 0L;
+        totalCrystals = 0L;
+
+        ImGui.TableSetupScrollFreeze(0, 1);
+        ImGui.TableSetupColumn("Draws", ImGuiTableColumnFlags.None, 0.15f);
+        ImGui.TableSetupColumn("Crystals", ImGuiTableColumnFlags.None, 0.2f);
+        ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.None, 1);
+        ImGui.TableHeadersRow();
+
+        foreach (var p in WorkManager.NativePtr->gacha->gachaStores->values->PtrEnumerable.OrderBy(p => p.ptr->masterGacha->id))
+        {
+            var gachaType = (GachaType)p.ptr->masterGacha->gachaType;
+            var draws = 0L;
+            var crystals = 0L;
+
+            // Actually IGachaStepGroupInfo[]
+            foreach (var p2 in ((Unmanaged_Array<GachaWork.GachaStepGroupStore>*)p.ptr->gachaStepGroupInfos)->PtrEnumerable)
+            {
+                var userGachaStepGroup = p2.ptr->userGachaStepGroup;
+                if (userGachaStepGroup == null) continue;
+
+                var totalDrawCount = userGachaStepGroup->totalDrawCount;
+                if (totalDrawCount <= 0) continue;
+
+                if (gachaType == GachaType.Ticket)
+                {
+                    totalTicketDraws += totalDrawCount;
+                    continue;
+                }
+
+                draws += totalDrawCount;
+
+                // Actually IGachaStepInfo[]
+                var steps = ((Unmanaged_Array<GachaWork.GachaStepStore>*)p2.ptr->gachaStepInfos)->PtrEnumerable.OrderBy(p3 => p3.ptr->masterGachaStep->seq).ToArray();
+                if (steps.Length == 0) continue;
+
+                var i = 0;
+                while (totalDrawCount > 0)
+                {
+                    var stepStore = steps[i].ptr;
+                    i = (int)stepStore->masterGachaStep->nextSeq - 1;
+                    var drawCount = stepStore->masterGachaStep->drawCount;
+                    if (drawCount == 0) break;
+
+                    totalDrawCount -= drawCount;
+                    var consumptionType = (GachaConsumptionType)stepStore->masterGachaStep->gachaConsumptionType;
+                    switch (consumptionType)
+                    {
+                        case GachaConsumptionType.PaidStone:
+                        case GachaConsumptionType.Stone:
+                        case GachaConsumptionType.PaidStoneAndTicket:
+                        case GachaConsumptionType.StoneAndTicket:
+                            crystals += stepStore->masterGachaStep->consumptionCount;
+                            break;
+                    }
+                }
+            }
+
+            if (draws == 0) continue;
+
+            if (crystals == 0)
+            {
+                totalFreeDraws += draws;
+                continue;
+            }
+
+            totalDraws += draws;
+            totalCrystals += crystals;
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(draws.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(crystals.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(GameInterop.GetLocalizedText(LocalizeTextCategory.Gacha, p.ptr->masterGacha->nameLanguageId));
         }
 
         ImGui.EndTable();
