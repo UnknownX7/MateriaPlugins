@@ -10,6 +10,7 @@ using ECGen.Generated.Command.OutGame.Chocobo;
 using ECGen.Generated.Command.OutGame.Event;
 using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Party;
+using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
 using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.Work;
@@ -99,6 +100,9 @@ public unsafe class SettingsPlus : IMateriaPlugin
             case "Command.Battle.ContinueModalPresenter" when Config.DisableContinueModal:
                 var continueModal = (ContinueModalPresenter*)currentModal.NativePtr;
                 GameInterop.TapButton(continueModal->consumptionStoneField->cancelButton);
+                return;
+            case "Command.OutGame.Shop.ShopCheckExchangeModalPresenter" when Config.EnableExchangeLimit:
+                UpdateExchangeMax();
                 return;
             case null:
                 break;
@@ -303,6 +307,29 @@ public unsafe class SettingsPlus : IMateriaPlugin
             SetMute(device->focusMode->GetValue() == Device.FocusMode.Off);
     }
 
+    private static void UpdateExchangeMax()
+    {
+        if (ModalManager.Instance?.GetCurrentModal<ShopCheckExchangeModalPresenter>() is not { } exchangeModal) return;
+
+        var stepper = exchangeModal.NativePtr->view->numericStepper;
+        if (!GameInterop.IsGameObjectActive(stepper) || stepper->internalMaxCount != stepper->internalSelectableMaxCount) return;
+
+        foreach (var p in exchangeModal.NativePtr->view->shopExchangeItemDataScroller->models->PtrEnumerable)
+        {
+            if (!Il2CppType<ShopExchangeItemDataCellModel>.Is(p.ptr, out var model)
+                || !Il2CppType<RewardWork.ConsumptionSetConsumptionRelStore>.Is(model->ConsumptionSetConsumptionRelInfo, out var consumptionStore)
+                || !Il2CppType<RewardWork.RewardStore>.Is(consumptionStore->rewardInfo, out var rewardStore)
+                || (RewardType)rewardStore->masterReward->rewardType != RewardType.Item)
+                continue;
+
+            var possessionCount = WorkManager.GetItemStore(rewardStore->masterReward->targetId)->count;
+            var maxPurchasable = possessionCount / consumptionStore->masterConsumptionSetConsumptionRel->consumptionCount;
+            stepper->selectableMaxCount = maxPurchasable;
+            stepper->internalSelectableMaxCount = maxPurchasable;
+            break;
+        }
+    }
+
     private static void TransitionToEventMultiBattle(ScreenBase<ScreenSetupParameter>* screen, long id)
     {
         var parent = screen->@class->parent;
@@ -456,6 +483,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
         ImGuiEx.SetItemTooltip("Sets the default number of selected chocoboosters to the max without overcapping");
+
+        b = Config.EnableExchangeLimit;
+        if (ImGui.Checkbox("Cap Exchange to Max Purchasable", ref b))
+        {
+            Config.EnableExchangeLimit = b;
+            Config.Save();
+        }
+        ImGuiEx.SetItemTooltip("Limits the max selection for exchangeable items to the max purchasable");
 
         b = ApiRequestAsync9Hook?.IsEnabled ?? false;
         if (ImGui.Checkbox("Save Account Data On Next Login", ref b))

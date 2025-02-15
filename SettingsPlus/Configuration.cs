@@ -17,4 +17,5 @@ public class Configuration : PluginConfiguration
     public bool EnableSynthesisRarity { get; set; }
     public int InterjectionDisplayLimit { get; set; } = 3;
     public bool EnableQuickChocoboosters { get; set; }
+    public bool EnableExchangeLimit { get; set; }
 }
