@@ -166,23 +166,24 @@ public unsafe class UserInfo : ModalInfo
     private static long totalFreeDraws = 0L;
     private static long totalTicketDraws = 0L;
     private static long totalCrystals = 0L;
+    private static long totalStamps = 0L;
     private static void DrawGachaDetails()
     {
-        ImGui.TextUnformatted($"Total Draws: {totalDraws}");
-        ImGui.TextUnformatted($"Total Free Draws: {totalFreeDraws}");
-        ImGui.TextUnformatted($"Total Ticket Draws: {totalTicketDraws}");
-        ImGui.TextUnformatted($"Total Crystals Used: {totalCrystals}");
+        ImGui.TextUnformatted($"Total Draws: {totalDraws} Crystal, {totalFreeDraws} Free, {totalTicketDraws} Tickets");
+        ImGui.TextUnformatted($"Total Crystals Used: {totalCrystals} ({totalStamps} Stamps)");
 
-        if (!ImGui.BeginTable("GachaTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollY)) return;
+        if (!ImGui.BeginTable("GachaTable", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.ScrollY)) return;
 
         totalDraws = 0L;
         totalFreeDraws = 0L;
         totalTicketDraws = 0L;
         totalCrystals = 0L;
+        totalStamps = 0L;
 
         ImGui.TableSetupScrollFreeze(0, 1);
-        ImGui.TableSetupColumn("Draws", ImGuiTableColumnFlags.None, 0.15f);
+        ImGui.TableSetupColumn("Draws", ImGuiTableColumnFlags.None, 0.14f);
         ImGui.TableSetupColumn("Crystals", ImGuiTableColumnFlags.None, 0.2f);
+        ImGui.TableSetupColumn("Stamps", ImGuiTableColumnFlags.None, 0.08f);
         ImGui.TableSetupColumn("Name", ImGuiTableColumnFlags.None, 1);
         ImGui.TableHeadersRow();
 
@@ -191,6 +192,9 @@ public unsafe class UserInfo : ModalInfo
             var gachaType = (GachaType)p.ptr->masterGacha->gachaType;
             var draws = 0L;
             var crystals = 0L;
+            var stamps = Il2CppType<GachaWork.GachaStampSheetGroupStore>.Is(p.ptr->gachaStampSheetGroupInfo, out var stampSheetGroupStore) && stampSheetGroupStore->userGachaStampSheetGroup != null
+                ? stampSheetGroupStore->userGachaStampSheetGroup->totalStampCount
+                : 0;
 
             // Actually IGachaStepGroupInfo[]
             foreach (var p2 in ((Unmanaged_Array<GachaWork.GachaStepGroupStore>*)p.ptr->gachaStepGroupInfos)->PtrEnumerable)
@@ -245,12 +249,15 @@ public unsafe class UserInfo : ModalInfo
 
             totalDraws += draws;
             totalCrystals += crystals;
+            totalStamps += stamps;
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(draws.ToString());
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(crystals.ToString());
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(stamps.ToString());
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(GameInterop.GetLocalizedText(LocalizeTextCategory.Gacha, p.ptr->masterGacha->nameLanguageId));
         }
