@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ECGen.Generated;
 using ECGen.Generated.Command.Battle;
+using ECGen.Generated.Command.Enums;
 using ECGen.Generated.Command.OutGame.MultiBattle;
 using ImGuiNET;
 using Materia.Game;
@@ -47,7 +48,7 @@ public unsafe class MultiPartyInfo : ScreenInfo
         if (characterInfos.Count == 0) return;
 
         Infomania.BeginInfoWindow("MultiPartySelectInfo");
-        PartyEditInfo.DrawStats(characterInfos, matchingRoom);
+        PartyEditInfo.DrawStats(characterInfos, PartyType.PartyMulti, matchingRoom);
         ImGui.End();
     }
 }

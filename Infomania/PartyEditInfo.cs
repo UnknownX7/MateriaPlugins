@@ -204,6 +204,7 @@ public class CharacterCalculator
     }
 
     public StatusParamInfo statCache;
+    public PartyType partyType;
     public Dictionary<SkillSlotType, SkillInfo> skillCache = new();
 
     public int physicalBaseDamage;
@@ -224,9 +225,10 @@ public class CharacterCalculator
 
     public PassiveMultiplierInfo materiaPotencyMultipliers = new();
 
-    public unsafe CharacterCalculator(PartyCharacterInfo* characterInfo)
+    public unsafe CharacterCalculator(PartyCharacterInfo* characterInfo, PartyType pType)
     {
         statCache = *characterInfo->totalStatus;
+        partyType = pType;
         physicalBaseDamage = CalcAllyBaseDamage(statCache.physicalAttack, 100);
         magicalBaseDamage = CalcAllyBaseDamage(statCache.magicalAttack, 100);
         hybridBaseDamage = CalcAllyBaseDamage((statCache.physicalAttack + statCache.magicalAttack) / 2, 100);
@@ -441,9 +443,12 @@ public class CharacterCalculator
         if (skillInfo.shouldDisplayCrit)
             finalConditionalCoefficient = finalConditionalCoefficient * statCache.criticalDamageMagnificationPermil / 1000;
 
+        var attackStanceBonus = partyType == PartyType.PartyMulti ? 650 : 500;
+        var defenseStanceBonus = partyType == PartyType.PartyMulti ? 800 : 500;
+
         return skillInfo.attackType != SkillAttackType.Heal
-         ? (CalcDamage(baseDamage, finalCoefficient, 500) + skillInfo.flat, CalcDamage(baseDamage, finalConditionalCoefficient, 500) + skillInfo.conditionalFlat)
-         : (CalcHeal(baseDamage, finalCoefficient, 500) + skillInfo.flat, CalcHeal(baseDamage, finalConditionalCoefficient, 500) + skillInfo.conditionalFlat + CalcRegen(baseDamage, skillInfo.regenCoefficient, 500));
+         ? (CalcDamage(baseDamage, finalCoefficient, attackStanceBonus) + skillInfo.flat, CalcDamage(baseDamage, finalConditionalCoefficient, attackStanceBonus) + skillInfo.conditionalFlat)
+         : (CalcHeal(baseDamage, finalCoefficient, defenseStanceBonus) + skillInfo.flat, CalcHeal(baseDamage, finalConditionalCoefficient, defenseStanceBonus) + skillInfo.conditionalFlat + CalcRegen(baseDamage, skillInfo.regenCoefficient, defenseStanceBonus));
     }
 
     public static int CalcAllyBaseDamage(int attack, int defense) => (int)(attack * 50 / (defense * 2.2f + 100));
@@ -526,7 +531,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         var characterInfo = partyEdit->currentPartyInfo->partyCharacterInfos->GetPtr(partyEdit->selectIndex);
         if (characterInfo == null || characterInfo->characterId == 0) return;
 
-        var characterCalculator = new CharacterCalculator(characterInfo);
+        var characterCalculator = new CharacterCalculator(characterInfo, partyEdit->partyType);
 
         Infomania.BeginInfoWindow("PartyEditInfo", () =>
         {
@@ -541,7 +546,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         {
             if (cachedAfterSelectPartyCharacterInfo != partyEdit->afterSelectPartyCharacterInfo)
             {
-                cachedCalculator = new CharacterCalculator(GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo, partyEdit->currentPartyInfo->partyCharacterInfos));
+                cachedCalculator = new CharacterCalculator(GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo, partyEdit->currentPartyInfo->partyCharacterInfos), partyEdit->partyType);
                 cachedAfterSelectPartyCharacterInfo = partyEdit->afterSelectPartyCharacterInfo;
             }
 
@@ -579,7 +584,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         ImGui.TextUnformatted($"M.Res: {calculator.magicalResist}% ({calculator.magicalHp} HP)");
     }
 
-    public static void DrawStats(PartyCharacterInfo*[] characterInfos, MultiAreaBattleMatchingRoomScreenPresenter* multi = null)
+    public static void DrawStats(PartyCharacterInfo*[] characterInfos, PartyType pType, MultiAreaBattleMatchingRoomScreenPresenter* multi = null)
     {
         var first = true;
         foreach (var characterInfo in characterInfos)
@@ -595,18 +600,18 @@ public unsafe class PartyEditInfo : ScreenInfo
             }
 
             using (_ = ImGuiEx.GroupBlock.Begin())
-                DrawStats(new CharacterCalculator(multi == null ? characterInfo : GetStatusParamInfo(characterInfo, multi)));
+                DrawStats(new CharacterCalculator(multi == null ? characterInfo : GetStatusParamInfo(characterInfo, multi), pType));
             first = false;
         }
     }
 
-    public static void DrawStats(IReadOnlyList<nint> characterInfos, MultiAreaBattleMatchingRoomScreenPresenter* multi = null)
+    public static void DrawStats(IReadOnlyList<nint> characterInfos, PartyType pType, MultiAreaBattleMatchingRoomScreenPresenter* multi = null)
     {
         if (characterInfos.Count == 0) return;
         var array = new PartyCharacterInfo*[characterInfos.Count];
         for (int i = 0; i < characterInfos.Count; i++)
             array[i] = (PartyCharacterInfo*)characterInfos[i];
-        DrawStats(array, multi);
+        DrawStats(array, pType, multi);
     }
 
     private static void DrawCalculatedDamage(SkillSlotType slotType, CharacterCalculator calculator)
