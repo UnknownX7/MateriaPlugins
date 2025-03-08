@@ -31,7 +31,7 @@ public unsafe class HomeInfo : ScreenInfo
     {
         if (!Il2CppType<HomeTopScreenPresenter>.Is(screen.NativePtr, out var homeScreen) || homeScreen->currentContentState != HomeContentState.Top) return;
 
-        var gilShop = WorkManager.GetShopStore(101067);
+        var gilShop = WorkManager.GetShopStore(101094);
         var total = 0L;
         var remaining = 0L;
         foreach (var p in DataStore.NativePtr->userData->dB->userDailyQuestTable->dictionary->Enumerable)
@@ -60,13 +60,13 @@ public unsafe class HomeInfo : ScreenInfo
             ImGui.Spacing();
         }
 
-        var dailiesDone = IsMissionBonusObtained(200002);
+        var dailiesDone = IsMissionBonusObtained(200003);
         var guildDailiesDone = IsMissionGroupCleared(1300001);
         if (!dailiesDone || guildDailiesDone)
         {
             DrawResetTimer("Dailies", 4, 12, dailiesDone); // Daily Mission Reset
             if (ImGuiEx.IsItemReleased())
-                ScreenManager.TransitionAsync(TransitionType.Mission, 200002);
+                ScreenManager.TransitionAsync(TransitionType.Mission, 200003);
         }
         else
         {
@@ -76,7 +76,7 @@ public unsafe class HomeInfo : ScreenInfo
         }
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Shop, 101067);
+            ScreenManager.TransitionAsync(TransitionType.Shop, 101094);
         DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300002)); // Weekly Mission Reset
         if (ImGuiEx.IsItemReleased())
             ScreenManager.TransitionAsync(TransitionType.Mission, 300002);

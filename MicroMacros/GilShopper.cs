@@ -10,7 +10,7 @@ namespace MicroMacros;
 
 public unsafe class GilShopper : IMicroMacro
 {
-    private const long shopID = 101067;
+    private const long shopID = 101094;
     private bool enabled = false;
     public ref bool Enabled => ref enabled;
 

@@ -16,7 +16,6 @@ public unsafe class SynthAssist : IMicroMacro
 
     private bool repeatedCraft = false;
     private bool[] disabledSynthSlots = null!;
-    private int selectedCraftIndex = -1;
     private long waitMs;
     private readonly Stopwatch waitStopwatch = new();
     public void Update()
@@ -44,58 +43,54 @@ public unsafe class SynthAssist : IMicroMacro
 
             if (ModalManager.Instance?.GetCurrentModal<SynthesisBulkReceiveModalPresenter>() is { } synthesisBulkReceiveModalPresenter)
             {
-                GameInterop.TapButton(synthesisBulkReceiveModalPresenter.NativePtr->view->acceptButton, false);
+                GameInterop.TapButton(synthesisBulkReceiveModalPresenter.NativePtr->view->acceptButton);
+                return;
+            }
+
+            if (ModalManager.Instance?.GetCurrentModal<GridItemConfirmModal>() is { } gridItemConfirmModal)
+            {
+                GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton);
+                return;
+            }
+
+            if (ModalManager.Instance?.GetCurrentModal<BulkSynthesisModalPresenter>() is { } bulkSynthesisModalPresenter)
+            {
+                foreach (var p in bulkSynthesisModalPresenter.NativePtr->bulkSynthesisContentGroup->nowBulkSynthesisContentModel->bulkSynthesisCellModels->PtrEnumerable)
+                {
+                    switch (p.ptr->bulkSynthesisViewType->GetValue())
+                    {
+                        case BulkSynthesisViewType.Synthesis:
+                            break;
+                        case BulkSynthesisViewType.CanSynthesis:
+                            GameInterop.TapButton(bulkSynthesisModalPresenter.NativePtr->bulkSynthesisButton);
+                            break;
+                        default:
+                            disabledSynthSlots[p.ptr->craftIndex] = true;
+                            break;
+                    }
+                }
+
+                GameInterop.TapButton(bulkSynthesisModalPresenter.NativePtr->header->closeButton);
                 return;
             }
 
             var native = synthesisTopScreenPresenter.NativePtr;
-            foreach (var p in native->synthesisContentGroup->nowSynthesisContent->displayCellPresenterArray->PtrEnumerable)
+            foreach (var p in native->synthesisContentGroup->nowSynthesisContentModel->synthesisCellModels->PtrEnumerable)
             {
-                var i = p.ptr->cellModel->craftIndex;
+                var i = p.ptr->craftIndex;
                 if (i >= 0 && i < disabledSynthSlots.Length && disabledSynthSlots[i]) continue;
 
-                switch (p.ptr->view->currentViewType)
+                switch (p.ptr->synthesisViewType->GetValue())
                 {
                     case SynthesisViewType.Empty:
-                        selectedCraftIndex = i;
-                        GameInterop.TapButton(p.ptr->view->decideButton, false);
+                        GameInterop.TapButton(native->view->historyBulkSynthesisButton);
                         return;
                     case SynthesisViewType.Acceptance:
-                        GameInterop.TapButton(native->view->bulkReceiveButton, false);
-                        return;
+                        GameInterop.TapButton(native->view->bulkReceiveButton);
+                        break;
                 }
             }
             return;
-        }
-        else if (ScreenManager.Instance?.GetCurrentScreen<SynthesisSelectScreenPresenter>() is { } synthesisSelectScreenPresenter)
-        {
-            if (!repeatedCraft)
-            {
-                if (synthesisSelectScreenPresenter.NativePtr->view->repeatCraftButton->isEnable)
-                {
-                    repeatedCraft = GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->view->repeatCraftButton);
-                    if (repeatedCraft)
-                        waitMs = 750;
-                    return;
-                }
-                else
-                {
-                    GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->header->backButton);
-                    if (selectedCraftIndex >= 0 && selectedCraftIndex < disabledSynthSlots.Length)
-                        disabledSynthSlots[selectedCraftIndex] = true;
-                    return;
-                }
-            }
-            else if (ModalManager.Instance?.GetCurrentModal<GridItemConfirmModal>() is { } gridItemConfirmModal)
-            {
-                GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton, false);
-                return;
-            }
-            else
-            {
-                GameInterop.TapButton(synthesisSelectScreenPresenter.NativePtr->view->craftButton, false);
-                return;
-            }
         }
 
         enabled = false;
@@ -109,7 +104,6 @@ public unsafe class SynthAssist : IMicroMacro
         {
             repeatedCraft = false;
             disabledSynthSlots = new bool[10];
-            selectedCraftIndex = -1;
         }
         ImGui.End();
     }
