@@ -49,7 +49,8 @@ public unsafe class SynthAssist : IMicroMacro
 
             if (ModalManager.Instance?.GetCurrentModal<GridItemConfirmModal>() is { } gridItemConfirmModal)
             {
-                GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton);
+                if (GameInterop.TapButton(gridItemConfirmModal.NativePtr->confirmButton))
+                    waitMs = 100;
                 return;
             }
 
@@ -62,8 +63,9 @@ public unsafe class SynthAssist : IMicroMacro
                         case BulkSynthesisViewType.Synthesis:
                             break;
                         case BulkSynthesisViewType.CanSynthesis:
-                            GameInterop.TapButton(bulkSynthesisModalPresenter.NativePtr->bulkSynthesisButton);
-                            break;
+                            if (GameInterop.TapButton(bulkSynthesisModalPresenter.NativePtr->bulkSynthesisButton))
+                                waitMs = 100;
+                            return;
                         default:
                             disabledSynthSlots[p.ptr->craftIndex] = true;
                             break;
