@@ -77,9 +77,9 @@ public unsafe class HomeInfo : ScreenInfo
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
         if (ImGuiEx.IsItemReleased())
             ScreenManager.TransitionAsync(TransitionType.Shop, 101094);
-        DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300002)); // Weekly Mission Reset
+        DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300003)); // Weekly Mission Reset
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Mission, 300002);
+            ScreenManager.TransitionAsync(TransitionType.Mission, 300003);
         DrawResetTimer("Weekly Shop", 11, 0);
         if (ImGuiEx.IsItemReleased())
             ScreenManager.TransitionAsync(TransitionType.Shop, 205002);

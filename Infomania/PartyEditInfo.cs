@@ -56,6 +56,7 @@ public class CharacterCalculator
         public SkillAttackType attackType;
         public SkillBaseAttackType baseAttackType;
         public ElementType elementType;
+        public SkillTargetType targetType;
         public int baseCoefficient;
         public int regenCoefficient;
         public int flat;
@@ -92,6 +93,7 @@ public class CharacterCalculator
 
                         attackType = skillDamageInfo->skillAttackType;
                         elementType = skillDamageInfo->damageElementType;
+                        targetType = skillEffectInfo->targetType;
                         baseCoefficient = skillDamageInfo->damageMagnificationPermil.permilValue;
                         baseConditionalCoefficient = baseCoefficient;
 
@@ -196,6 +198,15 @@ public class CharacterCalculator
                         else
                             supportSlotHealingMultiplier.add += p.ptr->value;
                         break;
+                    case SupportEffectType.AllTarget:
+                        targetType = targetType switch
+                        {
+                            SkillTargetType.OpponentSingle => SkillTargetType.OpponentAll,
+                            SkillTargetType.OwnSingle => SkillTargetType.OwnAll,
+                            SkillTargetType.FriendSingle => SkillTargetType.Friend,
+                            _ => targetType
+                        };
+                        break;
                 }
             }
 
@@ -205,7 +216,7 @@ public class CharacterCalculator
 
     public StatusParamInfo statCache;
     public PartyType partyType;
-    public Dictionary<SkillSlotType, SkillInfo> skillCache = new();
+    public Dictionary<SkillSlotType, SkillInfo> skillCache = [];
 
     public int physicalBaseDamage;
     public int magicalBaseDamage;
@@ -224,6 +235,8 @@ public class CharacterCalculator
     public PassiveMultiplierInfo conditional = new();
 
     public PassiveMultiplierInfo materiaPotencyMultipliers = new();
+
+    public Dictionary<GrowthBoardRoleEffectType, int> roleEffects = [];
 
     public unsafe CharacterCalculator(PartyCharacterInfo* characterInfo, PartyType pType)
     {
@@ -327,6 +340,17 @@ public class CharacterCalculator
                     break;
                 default:
                     continue;
+            }
+        }
+
+        if (characterInfo->growthBoardRoleEffects != null)
+        {
+            for (int i = 0; i < characterInfo->growthBoardRoleEffects->count; i++)
+            {
+                var entry = (Unmanaged_Entry<GrowthBoardRoleEffectType, int>*)((byte*)characterInfo->growthBoardRoleEffects->entries->items + i * 16);
+                var key = (GrowthBoardRoleEffectType)(int)entry->key;
+                var value = ((int*)entry)[3];
+                roleEffects[key] = value;
             }
         }
 
@@ -437,8 +461,24 @@ public class CharacterCalculator
 
         conditionalMultiplier += passiveMultiplier;
 
-        var finalCoefficient = CalcSkillDamageCoefficient(skillInfo.Coefficient, passiveMultiplier, skillInfo.brandMultiplier, materiaMultiplier, highwindMultiplier, materiaPotencyMultiplier);
-        var finalConditionalCoefficient = CalcSkillDamageCoefficient(skillInfo.ConditionalCoefficient, conditionalMultiplier, skillInfo.brandMultiplier, materiaMultiplier, highwindMultiplier, materiaPotencyMultiplier);
+        var rolePotencyCoefficient = 0;
+        if (skillInfo.attackType is SkillAttackType.Physical or SkillAttackType.Magical or SkillAttackType.Both)
+        {
+            if (skillInfo.elementType >= ElementType.Fire)
+                rolePotencyCoefficient = roleEffects.GetValueOrDefault((GrowthBoardRoleEffectType)(209 + (int)skillInfo.elementType), 0);
+        }
+        else
+        {
+            rolePotencyCoefficient = skillInfo.targetType switch
+            {
+                SkillTargetType.OpponentSingle or SkillTargetType.OwnSingle or SkillTargetType.FriendSingle => roleEffects.GetValueOrDefault(GrowthBoardRoleEffectType.SingleHealAbilityPowerUp, 0),
+                SkillTargetType.OpponentAll or SkillTargetType.OwnAll or SkillTargetType.Friend or SkillTargetType.AllTarget => roleEffects.GetValueOrDefault(GrowthBoardRoleEffectType.AllHealAbilityPowerUp, 0),
+                _ => 0
+            };
+        }
+
+        var finalCoefficient = CalcSkillDamageCoefficient(skillInfo.Coefficient, passiveMultiplier, skillInfo.brandMultiplier, materiaMultiplier, highwindMultiplier, materiaPotencyMultiplier, rolePotencyCoefficient);
+        var finalConditionalCoefficient = CalcSkillDamageCoefficient(skillInfo.ConditionalCoefficient, conditionalMultiplier, skillInfo.brandMultiplier, materiaMultiplier, highwindMultiplier, materiaPotencyMultiplier, rolePotencyCoefficient);
 
         if (skillInfo.shouldDisplayCrit)
             finalConditionalCoefficient = finalConditionalCoefficient * statCache.criticalDamageMagnificationPermil / 1000;
@@ -460,7 +500,7 @@ public class CharacterCalculator
 
     private static unsafe bool IsMateriaSupportActive(long materiaId, WeaponMateriaSupportSlotInfo* materiaSupportSlot) => materiaSupportSlot->targetMateriaIds->Enumerable.Any(id => id == materiaId);
 
-    public static unsafe int CalcSkillDamageCoefficient(int baseSkillCoefficient, Multiplier passiveMultiplier, Multiplier brandMultiplier, Multiplier materiaMultiplier, Multiplier highwindMultiplier, Multiplier materiaPotencyMultiplier)
+    public static unsafe int CalcSkillDamageCoefficient(int baseSkillCoefficient, Multiplier passiveMultiplier, Multiplier brandMultiplier, Multiplier materiaMultiplier, Multiplier highwindMultiplier, Multiplier materiaPotencyMultiplier, int rolePotencyCoefficient)
     {
         var skillDamageInfo = new SkillDamageInfo
         {
@@ -492,7 +532,10 @@ public class CharacterCalculator
 
             // Materia Damage Potency Stats
             damageMagnificationPermilMateriaParameterEffectValue = materiaPotencyMultiplier.add,
-            damageMagnificationPermilMateriaParameterEffectCoefficient = materiaPotencyMultiplier.coefficient
+            damageMagnificationPermilMateriaParameterEffectCoefficient = materiaPotencyMultiplier.coefficient,
+
+            // Role Growth Board Bonuses
+            damageMagnificationPermilGrowthBoardRoleEffectCoefficient = rolePotencyCoefficient
         };
 
         var activeSkillDamageEffect = new ActiveSkillDamageEffect
