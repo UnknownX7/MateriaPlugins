@@ -43,7 +43,7 @@ public unsafe class Automaton : IMateriaPlugin
         Disabled,
         All,
         Normal,
-        Crystal
+        Mythril
     }
 
     private static bool hasClosedStaminaModal = false;
@@ -217,7 +217,7 @@ public unsafe class Automaton : IMateriaPlugin
                     return;
                 case CactuarFarmMode.Normal when rareType == BattleRareWaveType.Normal:
                     return;
-                case CactuarFarmMode.Crystal when rareType == BattleRareWaveType.GuildBonus:
+                case CactuarFarmMode.Mythril when rareType == BattleRareWaveType.GuildBonus:
                     return;
             }
         }
