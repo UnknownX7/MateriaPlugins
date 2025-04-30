@@ -215,7 +215,7 @@ public unsafe class HomeInfo : ScreenInfo
 
     private static long GetFreeGachaAvailable()
     {
-        var gachas = (Unmanaged_Array<GachaWork.GachaStore>*)WorkManager.NativePtr->gacha->gachaGroupStores->values->PtrEnumerable.First(p => p.ptr->masterGachaGroup->id == 3).ptr->gachaInfos;
+        var gachas = (Unmanaged_Array<GachaWork.GachaStore>*)WorkManager.NativePtr->gacha->gachaGroupStores->values->PtrEnumerable.First(p => (GachaGroupType)p.ptr->masterGachaGroup->gachaGroupType == GachaGroupType.Free).ptr->gachaInfos;
         foreach (var p in gachas->PtrEnumerable)
         {
             var isDisplay = (delegate* unmanaged<GachaWork.GachaStore*, nint, CBool>)p.ptr->@class->vtable.get_IsDisplay.methodPtr;
