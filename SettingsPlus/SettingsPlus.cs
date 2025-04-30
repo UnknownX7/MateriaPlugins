@@ -324,6 +324,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
             var possessionCount = WorkManager.GetItemStore(rewardStore->masterReward->targetId)->count;
             var maxPurchasable = possessionCount / consumptionStore->masterConsumptionSetConsumptionRel->consumptionCount;
+            if (maxPurchasable >= stepper->selectableMaxCount) break;
+
             stepper->selectableMaxCount = maxPurchasable;
             stepper->internalSelectableMaxCount = maxPurchasable;
             break;
