@@ -12,6 +12,7 @@ using ECGen.Generated.Command.OutGame.MultiBattle;
 using ECGen.Generated.Command.OutGame.Party;
 using ECGen.Generated.Command.OutGame.Shop;
 using ECGen.Generated.Command.OutGame.Synthesis;
+using ECGen.Generated.Command.Title;
 using ECGen.Generated.Command.UI;
 using ECGen.Generated.Command.Work;
 using ECGen.Generated.Google.Protobuf.Collections;
@@ -81,6 +82,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
             GetInterjectionDisplayLimitHook?.Enable();
         if (Config.EnableQuickChocoboosters)
             ChocoboExpeditionShortenItemModalPresenterSetupHook?.Enable();
+        if (Config.EnableSkipLogo)
+            PlayBeginAnimationAsyncHook?.Enable();
 
         PluginServiceManager = pluginServiceManager;
     }
@@ -94,6 +97,9 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     public void UpdateUISettings()
     {
+        if (Config.EnableSkipTitleAnimations && SceneBehaviourManager.GetCurrentSceneBehaviour<TitleSceneBehaviour>() is { } title)
+            titleContentSkipTimeline(title.NativePtr->currentTitleContent, 0);
+
         var currentModal = ModalManager.Instance?.CurrentModal;
         switch (currentModal?.Type.FullName)
         {
@@ -443,6 +449,21 @@ public unsafe class SettingsPlus : IMateriaPlugin
             Config.Save();
         }
 
+        b = Config.EnableSkipLogo;
+        if (ImGui.Checkbox("Skip Startup Logo", ref b))
+        {
+            PlayBeginAnimationAsyncHook?.Toggle();
+            Config.EnableSkipLogo = b;
+            Config.Save();
+        }
+
+        b = Config.EnableSkipTitleAnimations;
+        if (ImGui.Checkbox("Skip Title Animations", ref b))
+        {
+            Config.EnableSkipTitleAnimations = b;
+            Config.Save();
+        }
+
         b = Config.EnableSkipBattleCutscenes;
         if (ImGui.Checkbox("Auto Skip Battle Cutscenes", ref b))
         {
@@ -509,6 +530,14 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     [GameSymbol("Command.SteamWindowUtility$$SetResolution")]
     private static delegate* unmanaged<int, int, int, nint, void> setResolution;
+
+    private delegate void PlayBeginAnimationAsyncDelegate(void* a1, nint method);
+    [GameSymbol("Command.EntryPointSceneBehaviour.<PlayBeginAnimationAsync>d__24$$MoveNext", EnableHook = false)]
+    private static IMateriaHook<PlayBeginAnimationAsyncDelegate>? PlayBeginAnimationAsyncHook;
+    private static void PlayBeginAnimationAsyncDetour(void* a1, nint method) { }
+
+    [GameSymbol("Command.Title.TitleContent$$SkipTimeline")]
+    private static delegate* unmanaged<TitleContent*, nint, void> titleContentSkipTimeline;
 
     private delegate void SetupStandardCameraDelegate(nint battleSystem, int cameraGroup, nint cameraName, CBool isDynamicCamera, nint method);
     [GameSymbol("Command.Battle.BattleSystem$$SetupStandardCamera_1", EnableHook = false)]

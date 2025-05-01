@@ -18,4 +18,6 @@ public class Configuration : PluginConfiguration
     public int InterjectionDisplayLimit { get; set; } = 3;
     public bool EnableQuickChocoboosters { get; set; }
     public bool EnableExchangeLimit { get; set; }
+    public bool EnableSkipLogo { get; set; }
+    public bool EnableSkipTitleAnimations { get; set; }
 }
