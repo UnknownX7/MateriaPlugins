@@ -15,6 +15,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RichPresence", "RichPresenc
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Automaton", "Automaton\Automaton.csproj", "{1BFC5459-4350-4D53-9DA0-C499E9674326}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccountSwap", "AccountSwap\AccountSwap.csproj", "{E2C1E5AB-6280-419C-ADA6-E74AD3D2C5F8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{1BFC5459-4350-4D53-9DA0-C499E9674326}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1BFC5459-4350-4D53-9DA0-C499E9674326}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1BFC5459-4350-4D53-9DA0-C499E9674326}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2C1E5AB-6280-419C-ADA6-E74AD3D2C5F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2C1E5AB-6280-419C-ADA6-E74AD3D2C5F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2C1E5AB-6280-419C-ADA6-E74AD3D2C5F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2C1E5AB-6280-419C-ADA6-E74AD3D2C5F8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
