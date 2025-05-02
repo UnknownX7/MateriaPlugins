@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using ECGen.Generated;
 using ECGen.Generated.Command;
 using ECGen.Generated.Command.KeyInput;
@@ -130,11 +131,11 @@ public unsafe class AccountSwap : IMateriaPlugin
     private static void BackupAccountInfo(string displayUserId)
     {
         var gameSaveDir = new DirectoryInfo(((SaveManager.StaticFields*)Il2CppType<SaveManager>.NativePtr->staticFields)->SaveDirectory->ToString());
-        if (gameSaveDir.Name != "GameSave") return;
+        if (gameSaveDir.Name != "GameSave") throw new ApplicationException($"GameSave directory name is incorrect: \"{gameSaveDir.FullName}\"");
 
         const string accountInfoFileName = "754e2df433cbec9c453541431f5646f040cc2b661c69efd88f3f2eea5621dbb9.bytes";
         var accountInfoFile = new FileInfo(Path.Combine(gameSaveDir.FullName, accountInfoFileName));
-        if (!accountInfoFile.Exists) return;
+        if (!accountInfoFile.Exists) throw new ApplicationException("Account file not found");
 
         var accountDir = gameSaveDir.Parent!.CreateSubdirectory("Accounts").CreateSubdirectory(displayUserId);
         accountInfoFile.CopyTo(Path.Combine(accountDir.FullName, accountInfoFileName), true);
