@@ -23,15 +23,39 @@ public unsafe class HomeInfo : ScreenInfo
     public override bool Enabled => Infomania.Config.EnableHomeInfo;
     public override Type[] ValidScreens { get; } = [ typeof(HomeTopScreenPresenter) ];
 
+    private const long premiumQuestGroupCategoryId = 99995500001;
+    private const long weeklyShopId = 205002;
+    private const long monthlyShopId = 205001;
+    private const long chocoboShopId = 207001;
+    private static bool setup = false;
+    private static long gilShopId = 101094;
+    private static long dailyQuestGroupId = 200004;
+    private static long guildDailyQuestGroupId = 1300002;
+    private static long weeklyQuestGroupId = 300004;
     private long freeGachaAvailable;
 
-    public override void Activate(Screen screen) => freeGachaAvailable = GetFreeGachaAvailable();
+    public override void Activate(Screen screen)
+    {
+        freeGachaAvailable = GetFreeGachaAvailable();
+        if (setup) return;
+
+        gilShopId = DataStore.NativePtr->master->dB->shopTable->data->PtrEnumerable.Where(p => p.ptr->nameLanguageId == 801000000101002).Max(p => p.ptr->id);
+
+        var validMissionGroups = DataStore.NativePtr->master->dB->missionGroupTable->data->PtrEnumerable.Select(p => p.ptr->id).ToHashSet();
+        while (validMissionGroups.Contains(dailyQuestGroupId + 1))
+            dailyQuestGroupId++;
+        while (validMissionGroups.Contains(guildDailyQuestGroupId + 1))
+            guildDailyQuestGroupId++;
+        while (validMissionGroups.Contains(weeklyQuestGroupId + 1))
+            weeklyQuestGroupId++;
+        setup = true;
+    }
 
     public override void Draw(Screen screen)
     {
         if (!Il2CppType<HomeTopScreenPresenter>.Is(screen.NativePtr, out var homeScreen) || homeScreen->currentContentState != HomeContentState.Top) return;
 
-        var gilShop = WorkManager.GetShopStore(101094);
+        var gilShop = WorkManager.GetShopStore(gilShopId);
         var total = 0L;
         var remaining = 0L;
         foreach (var p in DataStore.NativePtr->userData->dB->userDailyQuestTable->dictionary->Enumerable)
@@ -39,7 +63,7 @@ public unsafe class HomeInfo : ScreenInfo
             total += p.ptr->value->totalRemainWinCount;
             remaining += p.ptr->value->remainWinCount;
         }
-        var premiumQuestGroupCategory = WorkManager.GetSoloAreaGroupCategoryStore(99995500001);
+        var premiumQuestGroupCategory = WorkManager.GetSoloAreaGroupCategoryStore(premiumQuestGroupCategoryId);
         var f = (delegate* unmanaged<AreaBattleWork.SoloAreaGroupCategoryStore*, nint, long>)premiumQuestGroupCategory->@class->vtable.get_RemainingChallengeCount.methodPtr;
         var remainingPremiumQuests = f(premiumQuestGroupCategory, 0);
 
@@ -60,32 +84,32 @@ public unsafe class HomeInfo : ScreenInfo
             ImGui.Spacing();
         }
 
-        var dailiesDone = IsMissionBonusObtained(200003);
-        var guildDailiesDone = IsMissionGroupCleared(1300001);
+        var dailiesDone = IsMissionBonusObtained(dailyQuestGroupId);
+        var guildDailiesDone = IsMissionGroupCleared(guildDailyQuestGroupId);
         if (!dailiesDone || guildDailiesDone)
         {
             DrawResetTimer("Dailies", 4, 12, dailiesDone); // Daily Mission Reset
             if (ImGuiEx.IsItemReleased())
-                ScreenManager.TransitionAsync(TransitionType.Mission, 200003);
+                ScreenManager.TransitionAsync(TransitionType.Mission, dailyQuestGroupId);
         }
         else
         {
             DrawResetTimer("Guild Dailies", 4, 12, guildDailiesDone);
             if (ImGuiEx.IsItemReleased())
-                ScreenManager.TransitionAsync(TransitionType.Mission, 1300001);
+                ScreenManager.TransitionAsync(TransitionType.Mission, guildDailyQuestGroupId);
         }
         DrawResetTimer("Daily Shop", 3, 12, gilShop->userShop->lineupResetCount == gilShop->masterShop->maxLineupResetCount); // 2 is the reset time for the refreshes for some reason (14 is also the daily shop reset)
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Shop, 101094);
-        DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(300003)); // Weekly Mission Reset
+            ScreenManager.TransitionAsync(TransitionType.Shop, gilShopId);
+        DrawResetTimer("Weeklies", 5, 48, IsMissionBonusObtained(weeklyQuestGroupId)); // Weekly Mission Reset
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Mission, 300003);
+            ScreenManager.TransitionAsync(TransitionType.Mission, weeklyQuestGroupId);
         DrawResetTimer("Weekly Shop", 11, 0);
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Shop, 205002);
+            ScreenManager.TransitionAsync(TransitionType.Shop, weeklyShopId);
         DrawResetTimer("Monthly Shop", 12, 0);
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Shop, 205001);
+            ScreenManager.TransitionAsync(TransitionType.Shop, monthlyShopId);
 
         ImGui.Spacing();
         ImGui.Spacing();
@@ -115,7 +139,7 @@ public unsafe class HomeInfo : ScreenInfo
         }
         ImGui.TextUnformatted($"Chocobo: {GetHighestChocoboShopRank()}");
         if (ImGuiEx.IsItemReleased())
-            ScreenManager.TransitionAsync(TransitionType.Shop, 207001);
+            ScreenManager.TransitionAsync(TransitionType.Shop, chocoboShopId);
 
         ImGui.End();
     }
@@ -191,7 +215,7 @@ public unsafe class HomeInfo : ScreenInfo
 
     private static string GetHighestChocoboShopRank()
     {
-        var chocoboShop = WorkManager.GetShopStore(207001);
+        var chocoboShop = WorkManager.GetShopStore(chocoboShopId);
         var chocobos = (Unmanaged_Array<ShopItemLineupInfo>*)chocoboShop->shopItemLineupInfos;
         var highestRank = ChocoboRankType.None;
         var areaType = ChocoboAreaType.None;
