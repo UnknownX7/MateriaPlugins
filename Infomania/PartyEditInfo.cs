@@ -589,7 +589,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         {
             if (cachedAfterSelectPartyCharacterInfo != partyEdit->afterSelectPartyCharacterInfo)
             {
-                cachedCalculator = new CharacterCalculator(GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo, partyEdit->currentPartyInfo->partyCharacterInfos), partyEdit->partyType);
+                cachedCalculator = new CharacterCalculator(GetStatusParamInfo(partyEdit->afterSelectPartyCharacterInfo, partyEdit->currentPartyInfo->partyCharacterInfos, partyEdit->currentPartyInfo->memoriaInfo), partyEdit->partyType);
                 cachedAfterSelectPartyCharacterInfo = partyEdit->afterSelectPartyCharacterInfo;
             }
 
@@ -741,17 +741,17 @@ public unsafe class PartyEditInfo : ScreenInfo
     private static delegate* unmanaged<PartyWork*, Unmanaged_Dictionary<long, Unmanaged_List<PassiveSkillEffectInfo>>*, long, nint, Unmanaged_List<PassiveSkillEffectInfo>*> getOtherCharacterAllTargetTypePassiveSkillList;
 
     [GameSymbol("Command.Work.PartyWork$$GetStatusParamInfo")]
-    private static delegate* unmanaged<PartyWork*, PartyCharacterInfo*, Unmanaged_List<PassiveSkillEffectInfo>*, Unmanaged_IReadOnlyList<ISkillArmouryInfo>*, nint, PartyCharacterInfo*> getStatusParamInfo;
+    private static delegate* unmanaged<PartyWork*, PartyCharacterInfo*, Unmanaged_List<PassiveSkillEffectInfo>*, IMemoriaInfo*, Unmanaged_List<PassiveSkillEffectInfo>*, Unmanaged_IReadOnlyList<ISkillArmouryInfo>*, nint, PartyCharacterInfo*> getStatusParamInfo;
 
-    private static PartyCharacterInfo* GetStatusParamInfo(PartyCharacterInfo* characterInfo, Unmanaged_Array<PartyCharacterInfo>* characterInfos)
+    private static PartyCharacterInfo* GetStatusParamInfo(PartyCharacterInfo* characterInfo, Unmanaged_Array<PartyCharacterInfo>* characterInfos, MemoriaInfo* memoriaInfo)
     {
         var party = WorkManager.NativePtr->party;
-        return getStatusParamInfo(party, characterInfo, getOtherCharacterAllTargetTypePassiveSkillList(party, getPartyPassiveSkillEffectInfoListDictionary(party, characterInfos, 0), characterInfo->partyMemberId, 0), null, 0);
+        return getStatusParamInfo(party, characterInfo, getOtherCharacterAllTargetTypePassiveSkillList(party, getPartyPassiveSkillEffectInfoListDictionary(party, characterInfos, 0), characterInfo->partyMemberId, 0), (IMemoriaInfo*)memoriaInfo, null, null, 0);
     }
 
     private static PartyCharacterInfo* GetStatusParamInfo(PartyCharacterInfo* characterInfo, MultiAreaBattleMatchingRoomScreenPresenter* multi)
     {
         var party = WorkManager.NativePtr->party;
-        return getStatusParamInfo(party, characterInfo, getOtherCharacterAllTargetTypePassiveSkillList(party, multiGetPartyPassiveSkillEffectInfoListDictionary(multi, multi->prevRoomMembers, 0), characterInfo->partyMemberId, 0), null, 0);
+        return getStatusParamInfo(party, characterInfo, getOtherCharacterAllTargetTypePassiveSkillList(party, multiGetPartyPassiveSkillEffectInfoListDictionary(multi, multi->prevRoomMembers, 0), characterInfo->partyMemberId, 0), null, null, null, 0);
     }
 }
