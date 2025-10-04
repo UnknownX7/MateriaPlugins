@@ -281,7 +281,13 @@ public unsafe class Automaton : IMateriaPlugin
                 }
             }
 
-            GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
+            // Started after 3.0.0, not sure what causes this, seems to be trying to press something that doesn't exist for some reason
+            // System.Runtime.InteropServices.SEHException (0x80004005): External component has thrown an exception.
+            try
+            {
+                GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
+            }
+            catch { }
             return 1;
         }
         else if (modalManager.GetCurrentModal<StaminaRecoverModal>() is { } staminaRecoverModal)
