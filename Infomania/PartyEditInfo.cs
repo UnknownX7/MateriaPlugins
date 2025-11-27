@@ -23,6 +23,7 @@ public enum SkillSlotType
     MainWeapon,
     AbilityWeapon,
     UltimateWeapon,
+    Costume,
     Materia1,
     Materia2,
     Materia3,
@@ -362,7 +363,9 @@ public class CharacterCalculator
             CacheSkill(SkillSlotType.UltimateWeapon, characterInfo->legendaryWeaponInfo0);
         if (characterInfo->specialSkillInfo != null)
             CacheSkill(characterInfo->specialSkillInfo);
-        if (characterInfo->materiaInfo0 != null)
+        if (characterInfo->isCostumeSkillActive && characterInfo->costumeInfo != null && characterInfo->costumeInfo->skillCostumeInfo != null)
+            CacheSkill(SkillSlotType.Costume, characterInfo->costumeInfo->skillCostumeInfo->activeSkillInfo->baseSkillInfo, null, null);
+        else if (characterInfo->materiaInfo0 != null)
             CacheSkill(SkillSlotType.Materia1, characterInfo->materiaInfo0, characterInfo->mainWeaponInfo0->materiaSupportSlot0);
         if (characterInfo->materiaInfo1 != null)
             CacheSkill(SkillSlotType.Materia2, characterInfo->materiaInfo1, characterInfo->mainWeaponInfo0->materiaSupportSlot1);
@@ -449,6 +452,7 @@ public class CharacterCalculator
                 materiaPotencyMultiplier = materiaPotencyMultipliers.summonMultiplier;
                 break;
             //case SkillSlotType.UltimateWeapon:
+            //case SkillSlotType.Costume:
             default:
                 highwindMultiplier = default;
                 break;
@@ -585,7 +589,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         using (_ = ImGuiEx.GroupBlock.Begin())
             DrawStats(characterCalculator);
 
-        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is not (PartyEditSelectType.None or PartyEditSelectType.Character or PartyEditSelectType.Costume or PartyEditSelectType.DisplayWeapon))
+        if (partyEdit->afterSelectPartyCharacterInfo != null && partyEdit->partyEditSelectType is not (PartyEditSelectType.None or PartyEditSelectType.Character or PartyEditSelectType.DisplayCostume or PartyEditSelectType.DisplayWeapon))
         {
             if (cachedAfterSelectPartyCharacterInfo != partyEdit->afterSelectPartyCharacterInfo)
             {
@@ -679,6 +683,7 @@ public unsafe class PartyEditInfo : ScreenInfo
         SkillSlotType.MainWeapon => "M:",
         SkillSlotType.AbilityWeapon => "A:",
         SkillSlotType.UltimateWeapon => "U:",
+        SkillSlotType.Costume => "C:",
         SkillSlotType.Materia1 => "1:",
         SkillSlotType.Materia2 => "2:",
         SkillSlotType.Materia3 => "3:",
