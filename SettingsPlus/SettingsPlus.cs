@@ -97,8 +97,8 @@ public unsafe class SettingsPlus : IMateriaPlugin
 
     public void UpdateUISettings()
     {
-        if (Config.EnableSkipTitleAnimations && SceneBehaviourManager.GetCurrentSceneBehaviour<TitleSceneBehaviour>() is { } title)
-            titleContentSkipTimeline(title.NativePtr->currentTitleContent, 0);
+        if (Config.EnableSkipTitleAnimations && SceneBehaviourManager.GetCurrentSceneBehaviour<TitleSceneBehaviour>() is { } title && Il2CppType<TitleContent>.Is(title.NativePtr->currentTitleContent, out var titleContent))
+            titleContentSkipTimeline(titleContent, 0);
 
         var currentModal = ModalManager.Instance?.CurrentModal;
         switch (currentModal?.Type.FullName)
