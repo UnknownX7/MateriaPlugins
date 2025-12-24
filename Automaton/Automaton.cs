@@ -52,6 +52,7 @@ public unsafe class Automaton : IMateriaPlugin
     private static bool exit = false;
     private static long prevSoloAreaBattleID = 0;
     private static bool prevBattleIDIsEvent = false;
+    private static bool didTapFinalButton = true;
     private bool draw = false;
     private bool repeating = false;
     private int repeatDelayMs;
@@ -250,6 +251,7 @@ public unsafe class Automaton : IMateriaPlugin
                 || (modalManager.GetCurrentModal<EventMultiAreaBattleResultModalPresenter>() is { } eventMultiModal && GameInterop.IsGameObjectActive(eventMultiModal.NativePtr->waitingVotePresenter)))
                 return 1;
 
+            var basePresenter = (BattleResultModalBasePresenter<nint>*)currentModal.NativePtr;
             if (BattleSystem.Instance is { IsMultiplayer: true })
             {
                 if (requeueInstead && GameInterop.TapKeyAction(KeyAction.Back, true, 50))
@@ -285,7 +287,18 @@ public unsafe class Automaton : IMateriaPlugin
             // System.Runtime.InteropServices.SEHException (0x80004005): External component has thrown an exception.
             try
             {
-                GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
+                var currentComponent = basePresenter->battleResultComponents->GetPtr(basePresenter->currentBattleResultComponentsIndex);
+                if (Il2CppType<BattleResultRewardPresenter>.Is(currentComponent, out _))
+                {
+                    if (!didTapFinalButton && GameInterop.TapKeyAction(KeyAction.Confirm, true, 50))
+                        didTapFinalButton = true;
+                    basePresenter->view->playAgainButton->buttonReference->TapButton(true, 50);
+                }
+                else
+                {
+                    GameInterop.TapKeyAction(KeyAction.Confirm, true, 50);
+                    didTapFinalButton = false;
+                }
             }
             catch { }
             return 1;
@@ -371,6 +384,7 @@ public unsafe class Automaton : IMateriaPlugin
             prevSoloAreaBattleID = 0;
             repeatDelayMs = 0;
             repeatDelayStopwatch.Stop();
+            didTapFinalButton = true;
         }
 
         ImGui.TextUnformatted("Cactuar Farm Mode");
